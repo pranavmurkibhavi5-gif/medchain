@@ -18,12 +18,14 @@
     "test:integration": "node docs/integration-test.mjs",
     "test:all": "npm run test:contract && npm run test:integration",
     "preflight:sepolia": "npm --prefix contracts run preflight:sepolia",
-    "check:deployment": "node docs/check-deployment.mjs"
+    "check:deployment": "node docs/check-deployment.mjs",
+    "test:mongo": "node docs/mongo-test-server.cjs"
   },
   "devDependencies": {
     "@noble/hashes": "^1.6.1",
     "@noble/secp256k1": "^2.2.3",
-    "ethers": "^6.13.5"
+    "ethers": "^6.13.5",
+    "mongodb-memory-server": "^11.2.0"
   },
   "engines": {
     "node": ">=18"
