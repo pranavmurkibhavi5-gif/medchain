@@ -1,0 +1,42 @@
+=====================================================
+      S.G. BALEKUNDRI GENERAL HOSPITAL, BELAGAVI
+             DISCHARGE SUMMARY
+        (DUMMY DATA - ACADEMIC DEMO ONLY)
+=====================================================
+Patient        : Manu Nandihalli
+Hospital No    : SGB-2026-1180
+Admission Date : 2026-07-28
+Discharge Date : 2026-08-02
+Consultant     : Dr. Shankargoud Patil (Radiology)
+
+DIAGNOSIS
+  Community-acquired pneumonia, right lower lobe.
+
+PRESENTING COMPLAINTS
+  Fever with chills (4 days), productive cough,
+  right-sided pleuritic chest pain.
+
+INVESTIGATIONS
+  Chest X-ray  : Right lower lobe consolidation
+  CRP          : 68 mg/L
+  WBC          : 14,800 /uL
+  SpO2 on air  : 94 %
+
+TREATMENT GIVEN
+  IV Ceftriaxone 1 g BD x 5 days
+  Nebulisation with salbutamol
+  Antipyretics and chest physiotherapy
+
+CONDITION AT DISCHARGE
+  Afebrile for 48 hours, SpO2 98% on room air,
+  clinically improved.
+
+DISCHARGE MEDICATION
+  Tab. Cefixime 200 mg BD x 5 days
+  Syp. Ambroxol 10 ml TDS x 5 days
+
+FOLLOW UP
+  OPD review after 7 days with repeat chest X-ray.
+=====================================================
+Synthetic data for academic demonstration only.
+=====================================================

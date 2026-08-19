@@ -1,0 +1,25 @@
+{
+  "name": "bmr-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Solidity smart contracts for the Blockchain-Based Secure Medical Record System",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:ganache": "hardhat run scripts/deploy.js --network ganache",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "verify:sepolia": "hardhat verify --network sepolia",
+    "seed:local": "hardhat run scripts/seed.js --network localhost",
+    "preflight:sepolia": "hardhat run scripts/preflight.js --network sepolia",
+    "predeploy:sepolia": "hardhat run scripts/preflight.js --network sepolia"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.17"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  }
+}

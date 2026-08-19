@@ -1,0 +1,9 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "address": "0xAE246FCcad4F7aF88C1c6B3d17FaF2105D345824",
+  "admin": "0x48CFA7C74b48358B29b3d483c8F2e768248EA716",
+  "txHash": "0xb81fd1de4242c48186c45f69987b0d49f27ee6cfb96568792fa0f41550a7388d",
+  "blockNumber": 11520110,
+  "deployedAt": "2026-08-19T05:47:21.533Z"
+}

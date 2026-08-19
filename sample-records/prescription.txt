@@ -1,0 +1,31 @@
+=====================================================
+   Dr. Afziya Garag, MBBS MD (Cardiology)
+   Reg. No: KA-MED-1042
+   (DUMMY DATA - ACADEMIC DEMO ONLY)
+=====================================================
+Patient : Rakesh Patil            Date : 2026-08-15
+Age/Sex : 22 / M                  OPD  : 4471
+
+Rx
+  1. Tab. Amlodipine 5 mg
+     1 tablet once daily after breakfast .... 30 days
+
+  2. Tab. Atorvastatin 10 mg
+     1 tablet once daily at bedtime ......... 30 days
+
+  3. Cap. Omega-3 1000 mg
+     1 capsule once daily ................... 30 days
+
+ADVICE
+  - Restrict salt to under 5 g per day
+  - Brisk walk 30 minutes, 5 days a week
+  - Avoid fried and processed food
+  - Home BP monitoring twice weekly
+
+REVIEW : After 6 weeks with repeat lipid profile.
+
+                                  Signature
+                              Dr. Afziya Garag
+=====================================================
+Synthetic data for academic demonstration only.
+=====================================================

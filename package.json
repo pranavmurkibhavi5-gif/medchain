@@ -1,0 +1,31 @@
+{
+  "name": "blockchain-based-secure-medical-record",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Blockchain-Based Secure Medical Record System - React + Express + Solidity on Ethereum Sepolia",
+  "scripts": {
+    "setup": "npm install && npm --prefix contracts install && npm --prefix backend install && npm --prefix frontend install",
+    "chain": "npm --prefix contracts run node",
+    "compile": "npm --prefix contracts run compile",
+    "test:contract": "npm --prefix contracts test",
+    "deploy:local": "npm --prefix contracts run deploy:local",
+    "deploy:sepolia": "npm --prefix contracts run deploy:sepolia",
+    "seed:local": "npm --prefix contracts run seed:local",
+    "backend": "npm --prefix backend start",
+    "frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "test:integration": "node docs/integration-test.mjs",
+    "test:all": "npm run test:contract && npm run test:integration",
+    "preflight:sepolia": "npm --prefix contracts run preflight:sepolia",
+    "check:deployment": "node docs/check-deployment.mjs"
+  },
+  "devDependencies": {
+    "@noble/hashes": "^1.6.1",
+    "@noble/secp256k1": "^2.2.3",
+    "ethers": "^6.13.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

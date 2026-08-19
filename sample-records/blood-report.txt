@@ -1,0 +1,39 @@
+=====================================================
+        BELAGAVI DIAGNOSTIC LABORATORY
+        (DUMMY DATA - ACADEMIC DEMO ONLY)
+=====================================================
+Patient Name : Rakesh Patil
+Patient ID   : BDL-2026-00417
+Age / Sex    : 22 / Male
+Referred By  : Dr. Afziya Garag (Cardiology)
+Sample Date  : 2026-08-14
+Report Date  : 2026-08-15
+
+------------- COMPLETE BLOOD COUNT -------------
+Haemoglobin            13.9 g/dL      (13.0 - 17.0)
+Total WBC Count        7,200 /uL      (4,000 - 11,000)
+Platelet Count         2.45 lakh/uL   (1.5 - 4.1)
+RBC Count              4.86 mil/uL    (4.5 - 5.5)
+PCV                    41.2 %         (40 - 50)
+
+------------- LIPID PROFILE --------------------
+Total Cholesterol      214 mg/dL      (< 200)      HIGH
+Triglycerides          178 mg/dL      (< 150)      HIGH
+HDL Cholesterol        38 mg/dL       (> 40)       LOW
+LDL Cholesterol        141 mg/dL      (< 100)      HIGH
+
+------------- VITALS ---------------------------
+Blood Pressure         148 / 94 mmHg
+Pulse                  88 /min
+BMI                    27.4
+
+------------- IMPRESSION -----------------------
+Stage 1 hypertension with dyslipidaemia.
+Advise lifestyle modification, low sodium diet and
+review after 6 weeks with repeat lipid profile.
+
+Verified by: Dr. S. Kulkarni, MD (Pathology)
+=====================================================
+NOTE: Synthetic data generated for the project
+"Blockchain-Based Secure Medical Record". Not real.
+=====================================================
