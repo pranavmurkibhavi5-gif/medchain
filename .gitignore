@@ -14,3 +14,7 @@ contracts/cache/
 contracts/artifacts/
 contracts/typechain-types/
 coverage/
+
+# Local deployment handoff sheet and Vercel CLI state
+DEPLOY-VALUES.md
+.vercel/
