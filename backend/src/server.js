@@ -15,6 +15,7 @@ const bcrypt = require("bcryptjs");
 const config = require("./config");
 const store = require("./config/store");
 const chain = require("./services/chain");
+const ipfs = require("./services/ipfs");
 
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
@@ -63,6 +64,7 @@ app.get("/api/health", async (req, res) => {
     uptime: Math.round(process.uptime()),
     database: store.getMode() === "mongo" ? "mongodb" : "memory",
     ipfs: config.usingPinata ? "pinata" : "local",
+    pinata: await ipfs.pinataStatus(),
     chain: await chain.health(),
     contractAddress: config.contractAddress || null,
     chainId: config.chainId,

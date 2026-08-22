@@ -1,0 +1,423 @@
+const fs = require("fs");
+const {
+  Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
+  Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle,
+  PageNumber, Footer, convertInchesToTwip,
+} = require("docx");
+
+// ---------------------------------------------------------------------------
+// IEEE conference formatting helpers
+// ---------------------------------------------------------------------------
+const FONT = "Times New Roman";
+const BODY = 22;   // half-points => 11pt
+const SMALL = 18;  // 9pt, for tables
+
+const p = (text, opts = {}) =>
+  new Paragraph({
+    alignment: opts.align || AlignmentType.JUSTIFIED,
+    spacing: { after: opts.after ?? 100, line: opts.line ?? 240 },
+    indent: opts.indent === false ? undefined : { firstLine: convertInchesToTwip(0.2) },
+    children: [new TextRun({ text, font: FONT, size: opts.size || BODY, italics: opts.italics, bold: opts.bold })],
+  });
+
+// Section heading: "I. INTRODUCTION" - centered, small caps style
+const h1 = (num, text) =>
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 220, after: 120 },
+    children: [new TextRun({ text: num ? `${num}. ${text.toUpperCase()}` : text.toUpperCase(), font: FONT, size: BODY })],
+  });
+
+// Subsection: "A. Threat Model" - italic, left
+const h2 = (letter, text) =>
+  new Paragraph({
+    alignment: AlignmentType.LEFT,
+    spacing: { before: 140, after: 80 },
+    children: [new TextRun({ text: `${letter}. ${text}`, font: FONT, size: BODY, italics: true })],
+  });
+
+const caption = (text) =>
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 140, after: 80 },
+    children: [new TextRun({ text, font: FONT, size: SMALL })],
+  });
+
+const cell = (text, { bold = false, width, align = AlignmentType.LEFT, shade } = {}) =>
+  new TableCell({
+    width: { size: width, type: WidthType.DXA },
+    shading: shade ? { type: ShadingType.CLEAR, fill: shade } : undefined,
+    margins: { top: 40, bottom: 40, left: 60, right: 60 },
+    children: [
+      new Paragraph({
+        alignment: align,
+        spacing: { after: 0, line: 200 },
+        children: [new TextRun({ text: String(text), font: FONT, size: SMALL, bold })],
+      }),
+    ],
+  });
+
+function makeTable(widths, header, rows, aligns = []) {
+  const total = widths.reduce((a, b) => a + b, 0);
+  return new Table({
+    columnWidths: widths,
+    width: { size: total, type: WidthType.DXA },
+    rows: [
+      new TableRow({
+        tableHeader: true,
+        children: header.map((h, i) =>
+          cell(h, { bold: true, width: widths[i], shade: "E8E8E8", align: AlignmentType.CENTER })
+        ),
+      }),
+      ...rows.map(
+        (r) =>
+          new TableRow({
+            children: r.map((v, i) =>
+              cell(v, { width: widths[i], align: aligns[i] || AlignmentType.LEFT })
+            ),
+          })
+      ),
+    ],
+  });
+}
+
+const R = AlignmentType.RIGHT;
+const C = AlignmentType.CENTER;
+const L = AlignmentType.LEFT;
+
+// ---------------------------------------------------------------------------
+// Front matter (single column, spans page width)
+// ---------------------------------------------------------------------------
+const title = new Paragraph({
+  alignment: AlignmentType.CENTER,
+  spacing: { after: 200 },
+  children: [
+    new TextRun({
+      text: "MedChain: Patient-Controlled Medical Records with Constant-Cost Blockchain Anchoring and Wallet-Derived Encryption Keys",
+      font: FONT,
+      size: 48, // 24pt
+    }),
+  ],
+});
+
+const authorBlock = () => {
+  const names = [
+    ["Rakesh Patil", "2BU23CB059"],
+    ["Pranav Murkibhavi", "2BU23CB057"],
+    ["Manu Nandihalli", "2BU23CB047"],
+    ["Abhishek Mallgoudnavar", "2BU23CB001"],
+  ];
+  const w = 2520;
+  return new Table({
+    columnWidths: [w, w, w, w],
+    width: { size: w * 4, type: WidthType.DXA },
+    borders: {
+      top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
+      left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
+      insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE },
+    },
+    rows: [
+      new TableRow({
+        children: names.map(([n, usn]) =>
+          new TableCell({
+            width: { size: w, type: WidthType.DXA },
+            borders: {
+              top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
+              left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
+            },
+            children: [
+              new Paragraph({ alignment: C, spacing: { after: 0 }, children: [new TextRun({ text: n, font: FONT, size: 22 })] }),
+              new Paragraph({ alignment: C, spacing: { after: 0 }, children: [new TextRun({ text: usn, font: FONT, size: 18 })] }),
+              new Paragraph({ alignment: C, spacing: { after: 0 }, children: [new TextRun({ text: "Dept. of CSBS", font: FONT, size: 18, italics: true })] }),
+              new Paragraph({ alignment: C, spacing: { after: 0 }, children: [new TextRun({ text: "S. G. Balekundri Inst. of Tech.", font: FONT, size: 18, italics: true })] }),
+              new Paragraph({ alignment: C, spacing: { after: 120 }, children: [new TextRun({ text: "Belagavi, Karnataka, India", font: FONT, size: 18, italics: true })] }),
+            ],
+          })
+        ),
+      }),
+    ],
+  });
+};
+
+const guide = new Paragraph({
+  alignment: C,
+  spacing: { after: 240 },
+  children: [
+    new TextRun({ text: "Under the guidance of Ms. Afziya Garag, Assistant Professor, Department of Computer Science and Business Systems", font: FONT, size: 18, italics: true }),
+  ],
+});
+
+const abstractPara = new Paragraph({
+  alignment: AlignmentType.JUSTIFIED,
+  spacing: { after: 120, line: 240 },
+  children: [
+    new TextRun({ text: "Abstract—", font: FONT, size: BODY, bold: true, italics: true }),
+    new TextRun({
+      text:
+        "Electronic medical records are typically held in centralized databases that concentrate risk: a single breach exposes every patient, access logs can be edited by whoever controls the server, and patients themselves have no verifiable say in who reads their data. This paper presents MedChain, a deployed system in which medical files are encrypted in the patient's browser, stored off-chain on IPFS, and anchored to the Ethereum blockchain by cryptographic hash. Access is governed by a smart contract, so a permission cannot be granted, altered, or silently removed by any server operator. We contribute three design elements and evaluate them on a live public testnet deployment. First, a constant-cost anchoring scheme whose on-chain footprint is 249 bytes and 367,574 gas per record irrespective of file size, measured at 43x cheaper than naive on-chain storage for a 24 KB report and 18,286x cheaper for a 10 MB study. Second, a key-management scheme that derives a stable secp256k1 encryption keypair from a deterministic wallet signature, giving every user a recoverable encryption identity without the wallet ever exporting a private key and without the server storing key material. Third, a two-gate access control model in which reading a record requires both an on-chain permission and a key envelope sealed to the reader's public key, so revoking either gate is sufficient to deny access. A 56-assertion end-to-end test suite confirms that an unauthorized doctor is refused by the contract and by the API independently, and that revocation takes effect immediately. Measurement of the client pipeline yields a result relevant to implementers: AES-256-GCM encryption sustains 550-886 MB/s using hardware-accelerated Web Crypto, while the JavaScript keccak256 hash required for on-chain anchoring runs at only 9-12 MB/s and therefore accounts for over 98% of client-side latency.",
+      font: FONT,
+      size: BODY,
+    }),
+  ],
+});
+
+const keywords = new Paragraph({
+  alignment: AlignmentType.JUSTIFIED,
+  spacing: { after: 240, line: 240 },
+  children: [
+    new TextRun({ text: "Keywords—", font: FONT, size: BODY, bold: true, italics: true }),
+    new TextRun({ text: "blockchain, electronic health records, smart contracts, Ethereum, IPFS, AES-GCM, ECIES, access control, data integrity, patient privacy", font: FONT, size: BODY, italics: true }),
+  ],
+});
+
+// ---------------------------------------------------------------------------
+// Body
+// ---------------------------------------------------------------------------
+const body = [];
+
+// ---- I. Introduction
+body.push(h1("I", "Introduction"));
+body.push(p("Healthcare providers hold some of the most sensitive data any institution keeps, and they hold it in a structurally fragile way. The dominant architecture is a centralized electronic medical record (EMR) database owned by a hospital or vendor. That design is efficient, but it concentrates three distinct failures into one place."));
+body.push(p("The first is confidentiality. A single successful intrusion exposes every record at once, which is why medical data commands high prices on criminal markets and why healthcare is among the most frequently breached sectors."));
+body.push(p("The second is integrity. When the same organization stores both the records and the audit log of who touched them, the audit log is only as trustworthy as that organization. A record altered by an insider with database access leaves no evidence a patient could independently verify."));
+body.push(p("The third is control. Patients are nominally the subjects of their records but have no technical mechanism to grant or withdraw access. Consent is a policy commitment rather than an enforced constraint, and patients cannot observe who has read their data."));
+body.push(p("Blockchain technology addresses the second and third problems directly. An append-only ledger replicated across independent nodes makes tampering detectable, and smart contracts can enforce access rules that no single operator can override. The naive application of this idea, however, fails immediately on cost: storing a medical file on Ethereum is prohibitively expensive and, for files of clinical size, physically impossible within block gas limits. The prevailing solution is to store data off-chain and anchor only a hash on-chain."));
+body.push(p("That solution introduces a problem the literature discusses less often. If the file is encrypted off-chain, someone must manage the decryption keys, and doing so reintroduces exactly the trusted intermediary that blockchain was meant to eliminate. A server that holds keys can read every record regardless of what the smart contract says. This paper treats key management as a first-class design problem rather than an implementation detail."));
+body.push(p("We present MedChain, a working system deployed to the Ethereum Sepolia testnet with a publicly reachable web interface. Our contributions are:", { indent: false }));
+body.push(p("1) A constant-cost anchoring design, measured at 249 bytes and 367,574 gas per record independent of file size, together with a quantified comparison against on-chain storage.", { indent: false }));
+body.push(p("2) A wallet-derived key scheme that gives each user a deterministic secp256k1 encryption keypair reconstructible from a signature, so no private key is exported by the wallet and no key material is stored by the server.", { indent: false }));
+body.push(p("3) A two-gate access model requiring both an on-chain permission and a sealed key envelope, validated by an end-to-end test suite that confirms independent enforcement at the contract and API layers.", { indent: false }));
+body.push(p("4) An empirical evaluation of the client-side cryptographic pipeline that identifies JavaScript keccak256 hashing, not encryption, as the dominant cost.", { indent: false }));
+
+// ---- II. Related Work
+body.push(h1("II", "Related Work"));
+body.push(p("Blockchain applications in healthcare data management have been explored since the technology matured beyond cryptocurrency. MedRec [1] was among the first substantial proposals, using Ethereum smart contracts to manage authorization and pointers to data held in providers' existing databases, with mining incentivized by access to anonymized aggregate data. MedRec established the pattern this work follows: the chain carries permissions and references, not clinical content."));
+body.push(p("MeDShare [2] targeted data sharing among cloud service providers, using smart contracts to trigger revocation when misuse is detected and maintaining provenance for shared datasets. Dubovitskaya et al. [3] applied a permissioned blockchain to oncology records, arguing that a consortium chain among known hospitals better matches healthcare's regulatory environment than a public chain. Kuo et al. [4] surveyed the field and identified immutability, decentralized trust, and auditability as the properties that make distributed ledgers attractive for biomedical use, while cautioning about scalability and privacy limitations."));
+body.push(p("Zyskind et al. [5] proposed using a blockchain as an access-control manager for personal data more generally, storing only pointers and permissions on-chain and treating the ledger as an automated access-control engine that does not require trust in a third party. The off-chain storage layer in most such designs is IPFS [6], whose content addressing means the identifier of a file is derived from its contents, so a retrieved file can be checked against the identifier that referenced it."));
+body.push(p("Across this body of work, the on-chain-hash plus off-chain-storage architecture is well established, and our system adopts it. Two aspects are treated less thoroughly in the literature, and are where we focus. First, quantitative evaluation is often absent or limited to transaction throughput; measured per-operation gas costs and a direct comparison against on-chain storage are rarely reported. Second, the mechanics of key custody are frequently deferred. Systems commonly assume that a key exists and is available to the right party, without specifying where it lives or who could read it. We address both."));
+
+// ---- III. System Architecture
+body.push(h1("III", "System Architecture"));
+body.push(h2("A", "Overview"));
+body.push(p("MedChain is organized in four layers. A React single-page application runs entirely in the user's browser and performs all cryptographic operations on plaintext. A Node.js and Express API mediates storage and enforces access checks, but is deliberately constructed so that it cannot decrypt anything. A Solidity smart contract on Ethereum holds identities, record metadata, permissions, and the audit trail. IPFS, accessed through a pinning service, stores the encrypted files."));
+body.push(p("The trust boundary is drawn so that plaintext exists only inside the browser. Ciphertext leaves the browser; keys leave only in sealed form, encrypted to a specific recipient's public key."));
+
+body.push(h2("B", "Roles"));
+body.push(p("Three roles are supported. A patient owns records, uploads them, and is the sole authority over who may read them. A doctor may search registered patients, request access with a stated reason, and read records for which access has been granted. An administrator oversees registrations and system activity but, by construction, holds no key material and cannot read any medical content."));
+
+body.push(h2("C", "The upload pipeline"));
+body.push(p("Uploading a record proceeds through seven stages, all but the final two executed in the browser: the file is selected; its type and size are validated; a fresh 256-bit AES key is generated and the file encrypted with AES-256-GCM; the ciphertext is uploaded to IPFS, yielding a content identifier (CID); the keccak256 hash of the ciphertext is computed; the hash, CID, and metadata are submitted to the smart contract in a single transaction signed by the patient's wallet; and on confirmation the record identifier emitted by the contract is used to store the data key, sealed to the patient's own public key."));
+body.push(p("The hash is taken over the ciphertext rather than the plaintext. This is deliberate. Anyone holding the retrieved blob, including a party with no decryption key, can verify that what they received is byte-identical to what was anchored. Hashing the plaintext would make verification possible only after decryption, and would additionally leak a testable fingerprint of the plaintext to anyone who could guess it."));
+
+// ---- IV. Security Design
+body.push(h1("IV", "Security Design"));
+body.push(h2("A", "Threat model"));
+body.push(p("We assume the blockchain behaves correctly: transactions are ordered and included, and the contract's state cannot be modified except through its own functions. We assume the user's browser and wallet are not compromised. Under those assumptions we defend against a compromised or dishonest backend server, a compromised database, a dishonest administrator, a doctor attempting to read records without permission, a doctor retaining access after revocation, and an attacker who obtains ciphertext from IPFS."));
+body.push(p("We do not defend against a compromised client device, nor against a doctor who legitimately reads a record and then copies its contents. The latter is outside what any cryptographic access control can prevent, and the system's response is auditability rather than prevention: every read is recorded on-chain.", { after: 160 }));
+
+body.push(h2("B", "Deriving an encryption key from a wallet"));
+body.push(p("Encrypting per-record data keys to a recipient requires each user to have a public key. Ethereum wallets have exactly such a keypair, but MetaMask and comparable wallets deliberately refuse to export the private key or to perform arbitrary decryption, so the signing key cannot be used directly for ECIES."));
+body.push(p("We resolve this by deriving a separate keypair from a signature. The user signs a fixed, domain-separated message. ECDSA as implemented in Ethereum wallets follows RFC 6979 [7] and is deterministic: the same key signing the same message always produces the same signature. Hashing that signature with a domain separator therefore yields a stable 256-bit value, which we use as a secp256k1 private key. The corresponding public key is published to the server; the private key exists only in memory for the session and is never transmitted or stored."));
+body.push(p("The properties that follow are useful. The key is recoverable on any device from the wallet alone, so there is no key file to back up or lose. The server learns only the public half. Changing wallet accounts produces a different key, which the interface detects and surfaces. The scheme does inherit a limitation: a user who loses the wallet loses the ability to derive the key and therefore to decrypt their records. This is the same trade-off end-to-end encrypted systems generally make, and we discuss it in Section VII."));
+
+body.push(h2("C", "Sealing and two-gate access"));
+body.push(p("Each record is encrypted under its own random AES-256 data key. That data key is sealed to a recipient using ECIES over secp256k1: an ephemeral keypair is generated, ECDH produces a shared secret with the recipient's public key, HKDF-SHA256 [8] derives an AES key from it, and the data key is encrypted under AES-GCM. The resulting envelope can be opened only by the holder of the recipient's private key."));
+body.push(p("Granting a doctor access therefore involves two distinct actions: an on-chain transaction recording the permission, and re-sealing the relevant data keys to the doctor's public key. Reading a record requires both gates to be open. The API verifies the on-chain permission before releasing an envelope, so a client cannot simply assert access; and even a client that obtained the ciphertext directly from IPFS cannot decrypt it without an envelope sealed for them."));
+body.push(p("Revocation closes both gates. The on-chain permission is withdrawn, after which the contract itself refuses reads, and the stored envelopes for that doctor are deleted. Either action alone denies access; performing both means that neither a cached CID nor a stale API session is sufficient."));
+
+body.push(h2("D", "Audit trail"));
+body.push(p("Every consequential action emits a contract event: record upload, access request, approval, rejection, grant, revocation, successful read, and denied read. Because events are written by the contract and stored in the chain's log structure, they cannot be edited or deleted by any party, including the developers. Denied attempts are recorded as deliberately as successful ones, which gives patients evidence of attempted access rather than only of completed access."));
+
+// ---- V. Implementation
+body.push(h1("V", "Implementation"));
+body.push(p("The smart contract is written in Solidity 0.8.24 and compiles to 17,046 bytes of deployed bytecode, within the 24,576-byte EIP-170 limit. Access to state-changing functions is constrained by modifiers enforcing that the caller is a registered patient, a registered doctor, the owner of the record in question, or the administrator, and that supplied addresses are non-zero."));
+body.push(p("The frontend is a React 18 application built with Vite and styled with Tailwind CSS, using ethers.js v6 for contract interaction. Cryptography uses the browser's native Web Crypto API for AES-GCM and the audited @noble/secp256k1 and @noble/hashes libraries for elliptic-curve operations and keccak256."));
+body.push(p("The backend is an Express application that stores account records and sealed key envelopes in MongoDB Atlas, proxies uploads to IPFS through Pinata, and holds no private key of any kind. Its blockchain access is strictly read-only and exists so that permission checks are performed against the chain rather than against client claims."));
+body.push(p("The system is deployed publicly: the frontend on Vercel, the backend on Render, and the contract on Ethereum Sepolia. A user requires only a browser and a wallet extension."));
+
+// ---- VI. Evaluation
+body.push(h1("VI", "Evaluation"));
+body.push(p("All figures reported here are measured, not estimated, except where a gas price assumption is stated. Gas measurements were taken against a local Ethereum node executing the deployed contract bytecode; cryptographic timings were taken on an Intel-based laptop using the same code paths the browser executes."));
+
+body.push(h2("A", "Correctness"));
+body.push(p("The contract is covered by 29 unit tests spanning registration, upload, the request-approve-reject workflow, direct grant and revoke, unauthorized access, and record lifecycle. A separate 56-assertion suite exercises the deployed API, the deployed contract, and the browser cryptography module together. Both suites pass in full."));
+body.push(p("The security-relevant assertions are worth stating explicitly. An unauthorized doctor is refused a decryption key by the API, refused the ciphertext, refused a record listing, and refused by the contract itself, which reverts the read and emits a denial event. After revocation, all four refusals reapply immediately. A key envelope sealed for one doctor cannot be opened by another. A single flipped bit in the ciphertext changes the hash, is rejected by the contract's integrity check, and fails AES-GCM authentication on decryption. The API rejects any upload that is not a valid encrypted envelope, preventing plaintext from being stored even if a client were modified to attempt it."));
+
+body.push(caption("TABLE I.\tMEASURED GAS COST PER OPERATION"));
+body.push(makeTable(
+  [3300, 1700, 1600, 1450, 2030],
+  ["Operation", "Gas", "ETH", "USD", "Frequency"],
+  [
+    ["Contract deployment", "3,780,959", "0.075619", "226.86", "once"],
+    ["registerPatient", "186,023", "0.003720", "11.16", "per patient"],
+    ["registerDoctor", "230,839", "0.004617", "13.85", "per doctor"],
+    ["uploadRecord", "367,574", "0.007351", "22.05", "per record"],
+    ["requestAccess", "279,970", "0.005599", "16.80", "per request"],
+    ["approveRequest", "149,465", "0.002989", "8.97", "per approval"],
+    ["rejectRequest", "62,710", "0.001254", "3.76", "per rejection"],
+    ["grantAccess", "53,619", "0.001072", "3.22", "per grant"],
+    ["revokeAccess", "46,148", "0.000923", "2.77", "per revocation"],
+    ["logRecordAccess (allowed)", "30,732", "0.000615", "1.84", "per read"],
+    ["logRecordAccess (denied)", "33,937", "0.000679", "2.04", "per attempt"],
+    ["setDoctorVerified", "31,313", "0.000626", "1.88", "admin only"],
+  ],
+  [L, R, R, R, L]
+));
+body.push(p("Cost columns assume 20 gwei and ETH at USD 3,000; on a testnet the monetary cost is zero.", { size: SMALL, indent: false, after: 160 }));
+
+body.push(h2("B", "Cost of anchoring versus on-chain storage"));
+body.push(p("The defining property of the design is that the cost of anchoring a record does not depend on the size of the record. Table II compares the measured 367,574 gas against the cost of placing the file itself in contract storage, computed at 16 gas per non-zero calldata byte plus 20,000 gas per 32-byte storage word."));
+body.push(caption("TABLE II.\tANCHORING VERSUS ON-CHAIN STORAGE"));
+body.push(makeTable(
+  [2900, 2400, 1900, 1700, 1180],
+  ["File size", "Naive gas", "Naive cost", "Our gas", "Saving"],
+  [
+    ["24 KB text report", "15,753,216", "$945", "367,574", "43x"],
+    ["512 KB scanned PDF", "336,068,608", "$20,164", "367,574", "914x"],
+    ["2 MB X-ray image", "1,344,274,432", "$80,656", "367,574", "3,657x"],
+    ["10 MB MRI series", "6,721,372,160", "$403,282", "367,574", "18,286x"],
+  ],
+  [L, R, R, R, R]
+));
+body.push(p("The comparison understates the advantage. Ethereum's block gas limit of approximately 30 million makes every row beyond the first physically impossible to execute at all, not merely expensive. Anchoring is therefore not an optimization of on-chain storage but the only viable approach for files of clinical size."));
+body.push(p("Table III shows the corresponding on-chain footprint. A complete record occupies 249 bytes, of which 32 carry the integrity proof and 59 the IPFS pointer. No field contains clinical content."));
+body.push(caption("TABLE III.\tON-CHAIN FOOTPRINT PER RECORD"));
+body.push(makeTable(
+  [4000, 1600, 4480],
+  ["Field", "Bytes", "Purpose"],
+  [
+    ["recordId (uint256)", "32", "identifier"],
+    ["owner (address)", "20", "ownership"],
+    ["dataHash (bytes32)", "32", "integrity proof"],
+    ["cid (string)", "59", "IPFS pointer"],
+    ["fileName, fileType", "31", "display metadata"],
+    ["fileSize (uint256)", "32", "display metadata"],
+    ["recordType (string)", "10", "classification"],
+    ["timestamp (uint256)", "32", "ordering"],
+    ["active (bool)", "1", "lifecycle"],
+    ["Total", "249", "no clinical content"],
+  ],
+  [L, R, L]
+));
+
+body.push(h2("C", "Client-side cryptographic performance"));
+body.push(p("Table IV decomposes the browser pipeline. The result contradicts an intuition that encryption dominates: AES-256-GCM, executed through the hardware-accelerated Web Crypto API, sustains between 550 and 886 MB/s and encrypts a 10 MB file in 13.9 ms. The keccak256 hash required to produce the on-chain anchor is implemented in JavaScript and sustains only 9 to 12 MB/s, taking 1,049.8 ms for the same file."));
+body.push(caption("TABLE IV.\tCLIENT PIPELINE BY STAGE"));
+body.push(makeTable(
+  [1780, 1660, 1660, 1660, 1660, 1660],
+  ["File", "AES ms", "AES MB/s", "Hash ms", "Hash MB/s", "Total ms"],
+  [
+    ["100 KB", "0.3", "293", "8.5", "11", "10.2"],
+    ["500 KB", "0.6", "777", "39.3", "12", "41.6"],
+    ["1 MB", "1.6", "643", "95.3", "10", "100.2"],
+    ["5 MB", "9.1", "550", "554.9", "9", "525.0"],
+    ["10 MB", "13.9", "721", "1049.8", "10", "1195.1"],
+  ],
+  [L, R, R, R, R, R]
+));
+body.push(p("Hashing thus accounts for over 98% of client-side latency at every size measured. For implementers this identifies the correct optimization target: a WebAssembly keccak256 implementation, or moving the hash into a Web Worker so the interface remains responsive, would improve perceived performance far more than any change to the encryption layer. We note this because the opposite assumption appears frequently in system descriptions."));
+body.push(p("Encryption overhead is a constant 144 to 146 bytes regardless of file size, comprising the envelope header, initialization vector, authentication tag, and metadata."));
+
+body.push(h2("D", "Key management latency"));
+body.push(p("Table V reports key operations. Deriving the session keypair from a wallet signature takes approximately 1 ms once the signature is obtained, and is performed once per session. Sealing and unsealing a data key take under 10 ms and scale with the number of records shared rather than their size."));
+body.push(caption("TABLE V.\tKEY MANAGEMENT LATENCY (MEAN OF 50 RUNS)"));
+body.push(makeTable(
+  [4800, 1900, 3380],
+  ["Operation", "Mean ms", "Frequency"],
+  [
+    ["Keypair derivation from signature", "1.00", "once per session"],
+    ["ECIES seal (grant)", "9.29", "per record shared"],
+    ["ECIES unseal (read)", "8.71", "per record opened"],
+  ],
+  [L, R, L]
+));
+body.push(p("Granting a doctor access to a chart of n records requires n sealing operations, giving a cost linear in chart size: roughly 0.5 s for a 50-record chart, performed once at grant time rather than at each read."));
+
+// ---- VII. Discussion
+body.push(h1("VII", "Discussion and Limitations"));
+body.push(h2("A", "What the design achieves"));
+body.push(p("The security properties rest on structure rather than on policy. The server cannot read records because it holds no key, not because it is instructed not to. An administrator cannot read records for the same reason. Access control cannot be silently altered because the permission lives in a contract whose state changes are public and signed by the patient. These are verifiable properties: the contract is deployed at a public address and its behaviour can be inspected by anyone."));
+
+body.push(h2("B", "Limitations"));
+body.push(p("Key loss is unrecoverable. A patient who loses access to their wallet cannot derive the encryption key and therefore cannot decrypt their records, which remain on IPFS as ciphertext indefinitely. This is inherent to end-to-end encryption without escrow. Social recovery or threshold secret sharing among nominated contacts would mitigate it without restoring a central authority, and is the most important direction for future work."));
+body.push(p("Metadata is public. File names, types, sizes, record classifications, timestamps, and the graph of which doctor accessed which patient are visible on-chain. Clinical content is not, but the pattern of access is itself revealing, and a determined observer could infer a great deal. Reducing this leakage without losing auditability is a genuine open problem; commitments or zero-knowledge proofs of authorization are plausible approaches."));
+body.push(p("Emergency access is unsupported. A patient who is unconscious cannot approve a request, and the system has no break-glass mechanism. Any such mechanism must be designed carefully, since it is by definition a bypass of the property the system exists to provide; a time-locked mechanism requiring multiple authorized parties and emitting a prominent on-chain event would be one approach."));
+body.push(p("The evaluation is not a deployment study. Measurements were taken on a single machine and a testnet, with test users rather than clinicians and synthetic rather than real records. Throughput under concurrent load, behaviour on mainnet gas markets, and above all clinical usability remain unmeasured. We make no claims about regulatory compliance; HIPAA and comparable frameworks impose requirements, including on data deletion, that interact awkwardly with immutable ledgers and are not addressed here."));
+body.push(p("Finally, the choice of a public testnet is appropriate for demonstration but not for deployment. Sepolia offers no availability guarantees. A production system would use a permissioned chain among accountable institutions, or a layer-2 network, and the cost figures in Table I would change accordingly."));
+
+// ---- VIII. Conclusion
+body.push(h1("VIII", "Conclusion"));
+body.push(p("We have presented and evaluated MedChain, a deployed system for patient-controlled medical records that encrypts in the browser, stores off-chain, and anchors on-chain. Measurement shows the anchoring cost to be constant at 249 bytes and 367,574 gas per record, between 43 and 18,286 times cheaper than on-chain storage across realistic file sizes and, for larger files, the only feasible option."));
+body.push(p("The two design elements we consider most transferable are the derivation of a stable encryption keypair from a deterministic wallet signature, which eliminates key storage without requiring the wallet to export a private key, and the two-gate access model, which ensures that revoking either the on-chain permission or the sealed key envelope is independently sufficient to deny access. A 56-assertion end-to-end suite verifies both under adversarial conditions."));
+body.push(p("Our measurement of the client pipeline yields a practical finding for implementers: with hardware-accelerated AES, the integrity hash rather than the encryption dominates client-side cost, by a factor of roughly fifty. Optimization effort in browser-based blockchain applications should be directed accordingly."));
+body.push(p("Future work should address key recovery, metadata privacy, emergency access, and evaluation with clinical users on a production-grade chain."));
+
+// ---- Acknowledgment
+body.push(h1("", "Acknowledgment"));
+body.push(p("The authors thank Ms. Afziya Garag for her guidance throughout this work, and the Department of Computer Science and Business Systems, S. G. Balekundri Institute of Technology, Belagavi, for providing the facilities that made it possible."));
+
+// ---- References
+body.push(h1("", "References"));
+const refs = [
+  'A. Azaria, A. Ekblaw, T. Vieira, and A. Lippman, "MedRec: Using blockchain for medical data access and permission management," in Proc. 2nd Int. Conf. Open and Big Data (OBD), Vienna, Austria, 2016, pp. 25-30.',
+  'Q. Xia, E. B. Sifah, K. O. Asamoah, J. Gao, X. Du, and M. Guizani, "MeDShare: Trust-less medical data sharing among cloud service providers via blockchain," IEEE Access, vol. 5, pp. 14757-14767, 2017.',
+  'A. Dubovitskaya, Z. Xu, S. Ryu, M. Schumacher, and F. Wang, "Secure and trustable electronic medical records sharing using blockchain," in AMIA Annu. Symp. Proc., 2017, pp. 650-659.',
+  'T. T. Kuo, H. E. Kim, and L. Ohno-Machado, "Blockchain distributed ledger technologies for biomedical and health care applications," J. Amer. Med. Informat. Assoc., vol. 24, no. 6, pp. 1211-1220, 2017.',
+  'G. Zyskind, O. Nathan, and A. Pentland, "Decentralizing privacy: Using blockchain to protect personal data," in Proc. IEEE Security and Privacy Workshops, San Jose, CA, USA, 2015, pp. 180-184.',
+  'J. Benet, "IPFS - Content addressed, versioned, P2P file system," arXiv:1407.3561, 2014.',
+  'T. Pornin, "Deterministic usage of the Digital Signature Algorithm (DSA) and Elliptic Curve Digital Signature Algorithm (ECDSA)," RFC 6979, Aug. 2013.',
+  'H. Krawczyk and P. Eronen, "HMAC-based Extract-and-Expand Key Derivation Function (HKDF)," RFC 5869, May 2010.',
+  'G. Wood, "Ethereum: A secure decentralised generalised transaction ledger," Ethereum Project Yellow Paper, 2014.',
+  'National Institute of Standards and Technology, "Advanced Encryption Standard (AES)," FIPS PUB 197, Nov. 2001.',
+  'M. Dworkin, "Recommendation for block cipher modes of operation: Galois/Counter Mode (GCM) and GMAC," NIST Special Publication 800-38D, Nov. 2007.',
+  'National Institute of Standards and Technology, "SHA-3 standard: Permutation-based hash and extendable-output functions," FIPS PUB 202, Aug. 2015.',
+  'Standards for Efficient Cryptography Group, "SEC 1: Elliptic Curve Cryptography," Version 2.0, Certicom Research, 2009.',
+  'V. Buterin, "Ethereum: A next-generation smart contract and decentralized application platform," Ethereum White Paper, 2014.',
+  'V. Buterin and M. Swende, "EIP-170: Contract code size limit," Ethereum Improvement Proposals, no. 170, Nov. 2016.',
+];
+refs.forEach((r, i) => {
+  body.push(
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 60, line: 200 },
+      indent: { left: convertInchesToTwip(0.25), hanging: convertInchesToTwip(0.25) },
+      children: [new TextRun({ text: `[${i + 1}]\t${r}`, font: FONT, size: SMALL })],
+    })
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Document: single-column front matter, then two-column body
+// ---------------------------------------------------------------------------
+const doc = new Document({
+  creator: "Rakesh Patil, Pranav Murkibhavi, Manu Nandihalli, Abhishek Mallgoudnavar",
+  title: "MedChain: Patient-Controlled Medical Records with Constant-Cost Blockchain Anchoring",
+  description: "IEEE-format research paper",
+  sections: [
+    {
+      properties: {
+        page: {
+          size: { width: 12240, height: 15840 },
+          margin: { top: 1080, bottom: 1440, left: 1080, right: 1080 },
+        },
+      },
+      footers: {
+        default: new Footer({
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ children: [PageNumber.CURRENT], font: FONT, size: SMALL })],
+            }),
+          ],
+        }),
+      },
+      children: [title, authorBlock(), guide, abstractPara, keywords, ...body],
+    },
+  ],
+});
+
+Packer.toBuffer(doc).then((buf) => {
+  const out = process.argv[2] || "MedChain-Paper.docx";
+  fs.writeFileSync(out, buf);
+  console.log(`wrote ${out} (${(buf.length / 1024).toFixed(1)} KB)`);
+});

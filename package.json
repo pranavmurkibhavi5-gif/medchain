@@ -19,7 +19,8 @@
     "test:all": "npm run test:contract && npm run test:integration",
     "preflight:sepolia": "npm --prefix contracts run preflight:sepolia",
     "check:deployment": "node docs/check-deployment.mjs",
-    "test:mongo": "node docs/mongo-test-server.cjs"
+    "test:mongo": "node docs/mongo-test-server.cjs",
+    "test:uri": "node docs/test-mongo-uri.cjs"
   },
   "devDependencies": {
     "@noble/hashes": "^1.6.1",
