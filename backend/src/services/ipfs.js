@@ -45,7 +45,35 @@ function computeCid(buffer) {
   return "b" + base32Encode(bytes); // 'b' = base32 multibase prefix
 }
 
-async function uploadToPinata(buffer, fileName) {
+/**
+ * Pinata v3 upload (uploads.pinata.cloud). Newer Pinata accounts are issued
+ * keys that authenticate fine but are refused by the legacy pinning route, so
+ * this is tried first.
+ */
+async function uploadViaV3(buffer, fileName) {
+  const form = new FormData();
+  form.append("file", new Blob([buffer], { type: "application/octet-stream" }), fileName);
+  form.append("name", fileName);
+  form.append("network", "public");
+
+  const res = await fetch("https://uploads.pinata.cloud/v3/files", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${config.pinataJwt}` },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`v3 (${res.status}) ${text.slice(0, 200)}`);
+  }
+  const json = await res.json();
+  const cid = json?.data?.cid || json?.cid;
+  if (!cid) throw new Error(`v3 returned no CID: ${JSON.stringify(json).slice(0, 200)}`);
+  return cid;
+}
+
+/** Legacy pinning route, still correct for older Pinata accounts. */
+async function uploadViaLegacy(buffer, fileName) {
   const form = new FormData();
   form.append("file", new Blob([buffer], { type: "application/octet-stream" }), fileName);
   form.append(
@@ -62,10 +90,22 @@ async function uploadToPinata(buffer, fileName) {
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Pinata upload failed (${res.status}): ${text.slice(0, 300)}`);
+    throw new Error(`legacy (${res.status}) ${text.slice(0, 200)}`);
   }
   const json = await res.json();
   return json.IpfsHash;
+}
+
+async function uploadToPinata(buffer, fileName) {
+  const errors = [];
+  for (const attempt of [uploadViaV3, uploadViaLegacy]) {
+    try {
+      return await attempt(buffer, fileName);
+    } catch (err) {
+      errors.push(err.message);
+    }
+  }
+  throw new Error(`Pinata upload failed - ${errors.join(" | ")}`);
 }
 
 // Remembers why Pinata last failed so /api/health can report it.
@@ -122,7 +162,9 @@ async function pinataStatus() {
       headers: { Authorization: `Bearer ${config.pinataJwt}` },
       signal: AbortSignal.timeout(10000),
     });
-    if (res.ok) return { configured: true, working: true };
+    if (res.ok) {
+      return { configured: true, working: true, lastUploadError: lastPinataError };
+    }
     const text = await res.text().catch(() => "");
     return { configured: true, working: false, status: res.status, reason: text.slice(0, 200) };
   } catch (err) {
