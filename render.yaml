@@ -62,3 +62,26 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+
+      # ---- Gas sponsorship (embedded wallet) ----
+      # Patients sign their own transactions, so their accounts need a little
+      # Sepolia ETH. The backend tops each one up once from this account so no
+      # patient ever meets a faucet.
+      #
+      # SPONSOR_PRIVATE_KEY is a SECRET. sync:false means Render never reads it
+      # from this file and never stores it in the repository - it is entered
+      # once in the dashboard (Environment tab) and held encrypted by Render.
+      # Never commit it, never paste it into a browser form other than Render's
+      # own environment editor, and never put it in frontend/.env.
+      #
+      # Fund the account from a Sepolia faucet. Use an account created solely
+      # for this purpose that never holds real funds.
+      - key: SPONSOR_PRIVATE_KEY
+        sync: false
+      - key: SPONSOR_TOPUP_ETH
+        value: "0.004"
+      - key: SPONSOR_MIN_BALANCE_ETH
+        value: "0.002"
+      # Hard cap on total sponsorship per process, as a safety net.
+      - key: SPONSOR_MAX_TOTAL_ETH
+        value: "0.05"

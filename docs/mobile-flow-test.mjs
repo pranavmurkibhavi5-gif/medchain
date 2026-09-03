@@ -8,8 +8,9 @@ import { createVault, openVault, makeSigner } from "../frontend/src/lib/wallet.j
 import { encryptFile, sealKey, unsealKey, decryptEnvelope, keccakHex } from "../frontend/src/lib/crypto.js";
 import fs from "node:fs/promises";
 
-const B = "http://localhost:4000";
-const RPC = "http://127.0.0.1:8545";
+const B = process.env.API || "http://localhost:4000";
+const RPC = process.env.RPC || "http://127.0.0.1:8545";
+const CONTRACT = process.env.CONTRACT || null;
 let pass = 0, fail = 0;
 const ok = (m, c, x = "") => { c ? pass++ : fail++; console.log(`  ${c ? "PASS" : "FAIL"}  ${m}${x ? " - " + x : ""}`); };
 const sec = (s) => console.log(`\n${s}\n${"-".repeat(s.length)}`);
@@ -24,7 +25,12 @@ const call = async (p, o = {}) => {
 };
 
 const artifact = JSON.parse(await fs.readFile(new URL("../contracts/artifacts/contracts/MedicalRecord.sol/MedicalRecord.json", import.meta.url), "utf8"));
-const deployment = JSON.parse(await fs.readFile(new URL("../contracts/deployments/localhost.json", import.meta.url), "utf8"));
+const deployment = CONTRACT
+  ? { address: CONTRACT }
+  : JSON.parse(await fs.readFile(new URL("../contracts/deployments/localhost.json", import.meta.url), "utf8"));
+console.log(`API      : ${B}`);
+console.log(`RPC      : ${RPC}`);
+console.log(`Contract : ${deployment.address}`);
 
 async function signup(role, name, password, extra = {}) {
   const email = `${role}${Math.floor(Math.random()*99999)}@t.local`;

@@ -145,13 +145,44 @@ async function deriveRecordKeys(privateKey) {
  */
 const signerCache = new Map();
 
+/**
+ * Gas estimates are computed against whatever state the RPC node currently
+ * sees, and public nodes lag slightly behind the head. A transaction whose cost
+ * depends on state written moments earlier can therefore be given a limit that
+ * is correct at estimation time and too small at inclusion time, and it fails
+ * out of gas with no revert reason.
+ *
+ * revokeAccess is the concrete case: it walks the patient's requests and flips
+ * an approved one to revoked. Estimated before the approval is visible to the
+ * node, it misses that storage write by a few thousand gas.
+ *
+ * A local chain mines instantly and never shows this. Sepolia does. The buffer
+ * costs nothing - unused gas is refunded - and removes a whole class of
+ * intermittent failure.
+ */
+const GAS_BUFFER_PERCENT = 140n; // 40% headroom
+
+class BufferedNonceManager extends ethers.NonceManager {
+  async sendTransaction(tx) {
+    if (tx && tx.gasLimit == null) {
+      try {
+        const estimate = await this.estimateGas(tx);
+        tx = { ...tx, gasLimit: (estimate * GAS_BUFFER_PERCENT) / 100n };
+      } catch {
+        // Let the node reject it with its own error rather than masking one.
+      }
+    }
+    return super.sendTransaction(tx);
+  }
+}
+
 export function makeSigner(privateKey, rpcUrl) {
   const cacheKey = `${privateKey}@${rpcUrl}`;
   const cached = signerCache.get(cacheKey);
   if (cached) return cached;
 
   const provider = new ethers.JsonRpcProvider(rpcUrl, undefined, { staticNetwork: true });
-  const signer = new ethers.NonceManager(new ethers.Wallet(privateKey, provider));
+  const signer = new BufferedNonceManager(new ethers.Wallet(privateKey, provider));
   signerCache.set(cacheKey, signer);
   return signer;
 }
