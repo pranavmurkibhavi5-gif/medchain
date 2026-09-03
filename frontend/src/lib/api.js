@@ -78,6 +78,12 @@ export const api = {
   linkWallet: (payload) => request("/api/auth/link-wallet", { method: "POST", body: payload }),
   updateProfile: (payload) => request("/api/auth/profile", { method: "PATCH", body: payload }),
 
+  // --- embedded wallet ---
+  putVault: (payload) => request("/api/wallet/vault", { method: "POST", body: payload }),
+  getVault: () => request("/api/wallet/vault"),
+  ensureGas: () => request("/api/wallet/ensure-gas", { method: "POST" }),
+  sponsorStatus: () => request("/api/wallet/sponsor"),
+
   // --- directory ---
   doctors: (q = "") => request(`/api/users/doctors?q=${encodeURIComponent(q)}`),
   patients: (q = "") => request(`/api/users/patients?q=${encodeURIComponent(q)}`),

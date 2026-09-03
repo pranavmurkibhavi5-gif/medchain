@@ -1,137 +1,124 @@
+/**
+ * Sign in.
+ *
+ * Email and password only. The password also unlocks the user's blockchain
+ * identity, but the screen never says so - that is infrastructure, not
+ * something a patient needs to reason about.
+ */
 import { useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
-import { Alert, Spinner } from "../components/ui";
+import { useI18n } from "../i18n";
+import { Spinner } from "../components/ui";
 
 export default function Login() {
-  const { user, login, loadingUser } = useApp();
+  const { user, login, loadingUser, busy } = useApp();
+  const { t, lang, setLang, languages } = useI18n();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [show, setShow] = useState(false);
 
-  if (!loadingUser && user) return <Navigate to={location.state?.from || `/${user.role}`} replace />;
+  if (!loadingUser && user) return <Navigate to="/app" replace />;
 
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    setBusy(true);
     try {
-      const u = await login(form.email.trim(), form.password);
-      navigate(location.state?.from || `/${u.role}`, { replace: true });
+      await login(form.email.trim(), form.password);
+      navigate("/app", { replace: true });
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
+      const m = String(err.message || "");
+      if (m.includes("Invalid email or password")) setError(t("errors.invalidLogin"));
+      else if (m.includes("WRONG_PASSWORD")) setError(t("errors.wrongPassword"));
+      else if (m.includes("Cannot reach")) setError(t("errors.network"));
+      else setError(m || t("errors.generic"));
     }
   };
 
   return (
-    <div className="flex min-h-screen">
-      {/* Brand panel */}
-      <div className="relative hidden w-1/2 flex-col justify-between bg-slate-900 p-12 text-white lg:flex">
-        <Link to="/" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-lg">
-            &#129658;
-          </span>
-          <span className="font-bold">MedChain</span>
-        </Link>
-
-        <div>
-          <h2 className="text-4xl font-bold leading-tight">
-            Your records.
-            <br />
-            Your keys.
-            <br />
-            <span className="text-brand-400">Your decision.</span>
-          </h2>
-          <p className="mt-5 max-w-md text-slate-300">
-            Encrypted in the browser, stored off-chain, anchored to Ethereum. Nobody reads a record
-            without a permission you granted on-chain.
-          </p>
-        </div>
-
-        <p className="text-xs text-slate-500">
-          S.G. Balekundri Institute of Technology &middot; Belagavi
-        </p>
+    <div className="flex min-h-[100dvh] flex-col bg-white px-6 py-8">
+      {/* Language switch stays reachable on every auth screen */}
+      <div className="flex justify-end">
+        <select
+          value={lang}
+          onChange={(e) => setLang(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-600"
+          aria-label={t("language.current")}
+        >
+          {languages.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.native}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Form */}
-      <div className="flex w-full items-center justify-center px-4 py-12 lg:w-1/2">
-        <div className="w-full max-w-sm">
-          <div className="lg:hidden">
-            <Link to="/" className="mb-8 flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-lg text-white">
-                &#129658;
-              </span>
-              <span className="font-bold text-slate-900">MedChain</span>
-            </Link>
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
+        <div className="mb-8 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-600 text-3xl text-white">
+            &#129658;
+          </div>
+          <h1 className="mt-4 text-2xl font-extrabold text-slate-900">{t("auth.welcomeBack")}</h1>
+          <p className="mt-1 text-slate-500">{t("app.tagline")}</p>
+        </div>
+
+        {error && (
+          <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label className="label" htmlFor="email">{t("auth.email")}</label>
+            <input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              inputMode="email"
+              className="input-lg"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back</h1>
-          <p className="mt-1 text-sm text-slate-500">Sign in to reach your dashboard.</p>
-
-          {error && (
-            <div className="mt-5">
-              <Alert kind="error" onClose={() => setError("")}>
-                {error}
-              </Alert>
-            </div>
-          )}
-
-          <form onSubmit={submit} className="mt-6 space-y-4">
-            <div>
-              <label className="label" htmlFor="email">
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                className="input"
-                placeholder="you@example.com"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="label" htmlFor="password">
-                Password
-              </label>
+          <div>
+            <label className="label" htmlFor="password">{t("auth.password")}</label>
+            <div className="relative">
               <input
                 id="password"
-                type="password"
+                type={show ? "text" : "password"}
                 required
                 autoComplete="current-password"
-                className="input"
-                placeholder="••••••••"
+                className="input-lg pr-16"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
               />
+              <button
+                type="button"
+                onClick={() => setShow((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-brand-600"
+              >
+                {show ? "🙈" : "👁"}
+              </button>
             </div>
-
-            <button type="submit" disabled={busy} className="btn-primary w-full py-3">
-              {busy ? <Spinner /> : null} Sign in
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-slate-500">
-            New here?{" "}
-            <Link to="/register" className="link font-semibold">
-              Create an account
-            </Link>
-          </p>
-
-          <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
-            <p className="font-semibold text-slate-700">Demo administrator</p>
-            <p className="mono mt-1">admin@bmr.local / Admin@12345</p>
-            <p className="mt-1.5 text-[11px]">Change these before any public deployment.</p>
           </div>
-        </div>
+
+          <button type="submit" disabled={busy} className="btn-primary w-full py-4 text-base">
+            {busy ? <Spinner /> : null}
+            {busy ? t("auth.signingIn") : t("auth.signIn")}
+          </button>
+        </form>
+
+        <p className="mt-8 text-center text-slate-500">
+          {t("auth.noAccount")}{" "}
+          <Link to="/register" className="font-bold text-brand-600">
+            {t("auth.register")}
+          </Link>
+        </p>
       </div>
     </div>
   );

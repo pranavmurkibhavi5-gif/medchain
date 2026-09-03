@@ -1,90 +1,98 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { Routes, Route, Navigate, useParams } from "react-router-dom";
 
-import Layout from "./components/Layout";
-import { RequireRole } from "./components/Guards";
+import { useApp } from "./context/AppContext";
+import { hasChosenLanguage } from "./i18n";
+import { Spinner } from "./components/ui";
 
-import Landing from "./pages/Landing";
+import MobileLayout from "./components/MobileLayout";
+import Onboarding from "./pages/Onboarding";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 
-import PatientDashboard from "./pages/patient/Dashboard";
-import UploadRecord from "./pages/patient/UploadRecord";
-import MyRecords from "./pages/patient/MyRecords";
-import PatientRequests from "./pages/patient/Requests";
-import Permissions from "./pages/patient/Permissions";
-import PatientActivity from "./pages/patient/Activity";
+import Unlock from "./pages/app/Unlock";
+import PatientHome from "./pages/app/PatientHome";
+import DoctorHome from "./pages/app/DoctorHome";
+import Upload from "./pages/app/Upload";
+import Records from "./pages/app/Records";
+import Requests from "./pages/app/Requests";
+import Doctors from "./pages/app/Doctors";
+import FindPatient from "./pages/app/FindPatient";
+import Profile from "./pages/app/Profile";
+import Activity from "./pages/app/Activity";
 
-import DoctorDashboard from "./pages/doctor/Dashboard";
-import FindPatient from "./pages/doctor/FindPatient";
-import DoctorRequests from "./pages/doctor/Requests";
-import AuthorizedRecords from "./pages/doctor/AuthorizedRecords";
-import DoctorActivity from "./pages/doctor/Activity";
+/** Records of a specific patient, opened by a doctor. */
+function PatientRecords() {
+  const { address } = useParams();
+  return <Records ownerAddress={address} />;
+}
 
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminUsers from "./pages/admin/Users";
-import AdminRecords from "./pages/admin/Records";
-import AdminActivity from "./pages/admin/Activity";
-import AdminAudit from "./pages/admin/Audit";
+/** Everything behind sign-in, plus the unlock gate. */
+function Protected({ pendingCount, setCounts }) {
+  const { user, loadingUser, unlocked } = useApp();
+
+  if (loadingUser) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center">
+        <Spinner className="h-8 w-8 text-brand-600" />
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+
+  // Admins keep the existing desktop console; it is not part of the mobile app.
+  if (user.role === "admin") return <Navigate to="/admin" replace />;
+
+  if (!unlocked) {
+    return (
+      <div className="min-h-[100dvh] bg-slate-50 px-4 py-8">
+        <Unlock />
+      </div>
+    );
+  }
+  return <MobileLayout pendingCount={pendingCount} />;
+}
 
 export default function App() {
+  const { user } = useApp();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const setCounts = useCallback(({ pending }) => {
+    if (typeof pending === "number") setPendingCount(pending);
+  }, []);
+
+  const isDoctor = user?.role === "doctor";
+
   return (
     <Routes>
-      {/* Public */}
-      <Route path="/" element={<Landing />} />
+      <Route
+        path="/"
+        element={<Navigate to={hasChosenLanguage() ? "/login" : "/welcome"} replace />}
+      />
+      <Route path="/welcome" element={<Onboarding />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Patient */}
-      <Route
-        path="/patient"
-        element={
-          <RequireRole role="patient">
-            <Layout />
-          </RequireRole>
-        }
-      >
-        <Route index element={<PatientDashboard />} />
-        <Route path="upload" element={<UploadRecord />} />
-        <Route path="records" element={<MyRecords />} />
-        <Route path="requests" element={<PatientRequests />} />
-        <Route path="permissions" element={<Permissions />} />
-        <Route path="activity" element={<PatientActivity />} />
+      <Route path="/app" element={<Protected pendingCount={pendingCount} />}>
+        <Route
+          index
+          element={isDoctor ? <DoctorHome /> : <PatientHome onCounts={setCounts} />}
+        />
+        <Route path="upload" element={<Upload />} />
+        <Route path="records" element={<Records />} />
+        <Route path="requests" element={<Requests onCounts={setCounts} />} />
+        <Route path="doctors" element={<Doctors />} />
+        <Route path="find" element={<FindPatient />} />
+        <Route path="patient/:address" element={<PatientRecords />} />
+        <Route path="activity" element={<Activity />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
 
-      {/* Doctor */}
-      <Route
-        path="/doctor"
-        element={
-          <RequireRole role="doctor">
-            <Layout />
-          </RequireRole>
-        }
-      >
-        <Route index element={<DoctorDashboard />} />
-        <Route path="patients" element={<FindPatient />} />
-        <Route path="requests" element={<DoctorRequests />} />
-        <Route path="records" element={<AuthorizedRecords />} />
-        <Route path="activity" element={<DoctorActivity />} />
-      </Route>
+      {/* Legacy desktop routes kept so existing links and the admin console work */}
+      <Route path="/patient/*" element={<Navigate to="/app" replace />} />
+      <Route path="/doctor/*" element={<Navigate to="/app" replace />} />
 
-      {/* Admin */}
-      <Route
-        path="/admin"
-        element={
-          <RequireRole role="admin">
-            <Layout />
-          </RequireRole>
-        }
-      >
-        <Route index element={<AdminDashboard />} />
-        <Route path="users" element={<AdminUsers />} />
-        <Route path="records" element={<AdminRecords />} />
-        <Route path="activity" element={<AdminActivity />} />
-        <Route path="audit" element={<AdminAudit />} />
-      </Route>
-
-      <Route path="/dashboard" element={<Navigate to="/patient" replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

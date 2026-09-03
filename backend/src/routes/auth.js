@@ -11,8 +11,10 @@ const ROLES = ["patient", "doctor"];
 
 function publicUser(u) {
   if (!u) return null;
-  const { passwordHash, ...rest } = u;
-  return rest;
+  // The vault is ciphertext, but it is only ever needed by /api/wallet/vault,
+  // so it is kept out of general responses.
+  const { passwordHash, vault, ...rest } = u;
+  return { ...rest, hasVault: Boolean(vault) };
 }
 
 // ---------------------------------------------------------------------------

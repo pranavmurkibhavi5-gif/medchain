@@ -16,12 +16,14 @@ const config = require("./config");
 const store = require("./config/store");
 const chain = require("./services/chain");
 const ipfs = require("./services/ipfs");
+const sponsor = require("./services/sponsor");
 
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const recordRoutes = require("./routes/records");
 const adminRoutes = require("./routes/admin");
 const auditRoutes = require("./routes/audit");
+const walletRoutes = require("./routes/wallet");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -65,6 +67,7 @@ app.get("/api/health", async (req, res) => {
     database: store.getMode() === "mongo" ? "mongodb" : "memory",
     ipfs: config.usingPinata ? "pinata" : "local",
     pinata: await ipfs.pinataStatus(),
+    sponsor: await sponsor.status(),
     chain: await chain.health(),
     contractAddress: config.contractAddress || null,
     chainId: config.chainId,
@@ -90,6 +93,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/records", recordRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/audit", auditRoutes);
+app.use("/api/wallet", walletRoutes);
 
 app.use((req, res) => res.status(404).json({ error: `No route for ${req.method} ${req.path}` }));
 

@@ -21,6 +21,12 @@ const UserSchema = new mongoose.Schema(
     // Used to seal record keys to this user. Never a private key.
     encryptionPublicKey: { type: String, default: "" },
 
+    // Embedded-wallet vault: the user's Ethereum private key sealed under a
+    // key derived from their password in the browser. Ciphertext only - the
+    // server cannot open it and never sees the password.
+    vault: { type: Object, default: null },
+    vaultSalt: { type: String, default: "" },
+
     // Patient fields
     dateOfBirth: { type: String, default: "" },
     bloodGroup: { type: String, default: "" },

@@ -1,25 +1,23 @@
 /**
- * Single app-wide context holding three linked things:
+ * Application state.
  *
- *   1. the signed-in account (JWT-based),
- *   2. the connected MetaMask wallet + signer,
- *   3. the session encryption keypair derived from a wallet signature.
+ * Replaces the previous MetaMask-driven context. The blockchain identity now
+ * comes from the embedded wallet (see lib/wallet.js), so the UI deals only in
+ * "signed in" and "unlocked" - never in wallets, networks or gas.
  *
- * They are together because the record flows need all three at once, and
- * keeping them in one place avoids a tangle of cross-context effects.
+ * Three states matter:
+ *   signed out          - no token
+ *   signed in, locked   - token is valid but the vault has not been opened
+ *                         (e.g. after a page refresh; the password is never
+ *                         persisted, so it must be entered again)
+ *   signed in, unlocked - private key held in memory, transactions possible
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { Contract } from "ethers";
+
 import { api, setToken, getToken } from "../lib/api";
-import {
-  connectWallet,
-  switchNetwork,
-  getContract,
-  CHAIN_ID,
-  NETWORK_NAME,
-  hasMetaMask,
-  humanError,
-} from "../lib/web3";
-import { deriveKeyPairFromSignature, KEY_DERIVATION_MESSAGE } from "../lib/crypto";
+import { createVault, openVault, makeSigner, clearSigners } from "../lib/wallet";
+import { CONTRACT_ADDRESS, RPC_URL, ABI } from "../lib/web3";
 
 const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
@@ -28,15 +26,14 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
-  const [wallet, setWallet] = useState(null); // { address, chainId }
-  const [signer, setSigner] = useState(null);
-  const [keyPair, setKeyPair] = useState(null); // { privateKey, publicKey }
-  const [walletBusy, setWalletBusy] = useState(false);
+  // Held in memory only. Never written to storage.
+  const [secret, setSecret] = useState(null); // { address, privateKey, keyPair }
+  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState(null);
 
   const notify = useCallback((message, kind = "info") => {
     setToast({ message, kind, id: Date.now() });
-    setTimeout(() => setToast((t) => (t && t.message === message ? null : t)), 5200);
+    setTimeout(() => setToast((t) => (t && t.message === message ? null : t)), 4500);
   }, []);
 
   // ---------------------------------------------------------------- session
@@ -64,58 +61,111 @@ export function AppProvider({ children }) {
   useEffect(() => {
     const onUnauthorised = () => {
       setUser(null);
-      setKeyPair(null);
+      setSecret(null);
     };
     window.addEventListener("bmr:unauthorised", onUnauthorised);
     return () => window.removeEventListener("bmr:unauthorised", onUnauthorised);
   }, []);
 
-  // React to the user swapping accounts or networks in MetaMask.
-  useEffect(() => {
-    if (!hasMetaMask()) return;
-    const onAccounts = (accounts) => {
-      if (!accounts || accounts.length === 0) {
-        setWallet(null);
-        setSigner(null);
-        setKeyPair(null);
-        notify("MetaMask disconnected", "warn");
-      } else {
-        setWallet((w) => (w ? { ...w, address: accounts[0] } : w));
-        setKeyPair(null); // different account => different encryption key
-        notify("MetaMask account changed - unlock your key again", "warn");
-      }
-    };
-    const onChain = () => window.location.reload();
-
-    window.ethereum.on("accountsChanged", onAccounts);
-    window.ethereum.on("chainChanged", onChain);
-    return () => {
-      window.ethereum.removeListener("accountsChanged", onAccounts);
-      window.ethereum.removeListener("chainChanged", onChain);
-    };
-  }, [notify]);
-
-  // ------------------------------------------------------------------ auth
-  const login = useCallback(async (email, password) => {
-    const { token, user } = await api.login({ email, password });
-    setToken(token);
-    setUser(user);
-    return user;
+  /** Make sure the account can pay for its own transactions. Silent, best-effort. */
+  const ensureGas = useCallback(async () => {
+    try {
+      return await api.ensureGas();
+    } catch (err) {
+      console.warn("[gas] sponsorship unavailable:", err.message);
+      return { funded: false, reason: err.message };
+    }
   }, []);
 
-  const register = useCallback(async (payload) => {
-    const { token, user } = await api.register(payload);
-    setToken(token);
-    setUser(user);
-    return user;
+  // ------------------------------------------------------------------- auth
+  /**
+   * Create the account and its blockchain identity in one step. The user only
+   * ever supplies name, email and password.
+   */
+  const register = useCallback(
+    async (form) => {
+      setBusy(true);
+      try {
+        const { token, user } = await api.register(form);
+        setToken(token);
+
+        const created = await createVault(form.password);
+        await api.putVault({
+          vault: created.vault,
+          salt: created.salt,
+          address: created.address,
+          encryptionPublicKey: created.keyPair.publicKey,
+        });
+
+        const { user: fresh } = await api.me();
+        setUser(fresh);
+        setSecret({
+          address: created.address,
+          privateKey: created.privateKey,
+          keyPair: created.keyPair,
+        });
+
+        ensureGas(); // fire and forget; the first transaction waits on it
+        return fresh;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [ensureGas]
+  );
+
+  /** Sign in and open the vault with the same password. */
+  const login = useCallback(
+    async (email, password) => {
+      setBusy(true);
+      try {
+        const { token, user } = await api.login({ email, password });
+        setToken(token);
+        setUser(user);
+
+        if (user.hasVault) {
+          await unlockWith(password);
+        } else {
+          // Account created before the embedded wallet existed, or setup was
+          // interrupted: give it an identity now.
+          const created = await createVault(password);
+          await api.putVault({
+            vault: created.vault,
+            salt: created.salt,
+            address: created.address,
+            encryptionPublicKey: created.keyPair.publicKey,
+          });
+          const { user: fresh } = await api.me();
+          setUser(fresh);
+          setSecret({
+            address: created.address,
+            privateKey: created.privateKey,
+            keyPair: created.keyPair,
+          });
+        }
+
+        ensureGas();
+        return user;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [ensureGas]
+  );
+
+  /** Open the stored vault. Used at sign-in and after a refresh. */
+  const unlockWith = useCallback(async (password) => {
+    const { vault, salt } = await api.getVault();
+    const opened = await openVault(password, vault, salt);
+    setSecret(opened);
+    return opened;
   }, []);
 
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
-    setWallet(null);
-    setSigner(null);
-    setKeyPair(null);
+    setSecret(null);
+    clearSigners(); // drop the cached nonce state with the session
   }, []);
 
   const refreshUser = useCallback(async () => {
@@ -124,99 +174,70 @@ export function AppProvider({ children }) {
     return user;
   }, []);
 
-  // ---------------------------------------------------------------- wallet
+  // ------------------------------------------------------------- blockchain
   /**
-   * Connect MetaMask, make sure the chain is right, derive the encryption
-   * keypair, and link the wallet to the account on first use.
+   * A contract bound to the user's own key. Callers never think about signers.
+   * Gas is topped up first so a transaction cannot fail for lack of funds.
    */
-  const connect = useCallback(async () => {
-    setWalletBusy(true);
-    try {
-      let { signer: s, address, chainId } = await connectWallet();
-
-      if (chainId !== CHAIN_ID) {
-        notify(`Switching MetaMask to ${NETWORK_NAME}...`, "info");
-        await switchNetwork(CHAIN_ID);
-        ({ signer: s, address, chainId } = await connectWallet());
-      }
-
-      setSigner(s);
-      setWallet({ address, chainId });
-
-      // Derive the session encryption keypair (one signature, no gas).
-      const signature = await s.signMessage(KEY_DERIVATION_MESSAGE);
-      const kp = deriveKeyPairFromSignature(signature);
-      setKeyPair(kp);
-
-      // Bind wallet + public key to the account, proving ownership.
-      if (user) {
-        const linkMessage =
-          `MedChain wallet link\n\nAccount: ${user.id}\nWallet: ${address}\nIssued: ${new Date().toISOString()}`;
-        const linkSig = await s.signMessage(linkMessage);
-        const { user: updated } = await api.linkWallet({
-          address,
-          signature: linkSig,
-          message: linkMessage,
-          encryptionPublicKey: kp.publicKey,
-        });
-        setUser(updated);
-      }
-
-      notify("Wallet connected and encryption key unlocked", "success");
-      return { address, chainId, keyPair: kp };
-    } catch (err) {
-      notify(humanError(err), "error");
-      throw err;
-    } finally {
-      setWalletBusy(false);
-    }
-  }, [user, notify]);
-
-  /** Re-derive the key without redoing the whole connect flow. */
-  const unlockKey = useCallback(async () => {
-    if (!signer) throw new Error("Connect your wallet first");
-    const signature = await signer.signMessage(KEY_DERIVATION_MESSAGE);
-    const kp = deriveKeyPairFromSignature(signature);
-    setKeyPair(kp);
-    return kp;
-  }, [signer]);
-
   const contract = useCallback(async () => {
-    if (!signer) throw new Error("Connect your MetaMask wallet first");
-    return getContract(signer);
-  }, [signer]);
+    if (!secret) throw new Error("LOCKED");
+    if (!CONTRACT_ADDRESS) throw new Error("NO_CONTRACT");
+    await ensureGas();
+    const signer = makeSigner(secret.privateKey, RPC_URL);
+    return new Contract(CONTRACT_ADDRESS, ABI, signer);
+  }, [secret, ensureGas]);
 
-  const walletMatchesAccount =
-    !user?.walletAddress ||
-    !wallet?.address ||
-    user.walletAddress.toLowerCase() === wallet.address.toLowerCase();
+  /** Register on-chain if this account has not been yet. Idempotent. */
+  const ensureOnChainIdentity = useCallback(async () => {
+    if (!secret || !user) return false;
+    const c = await contract();
+    try {
+      if (user.role === "patient") {
+        if (await c.isPatient(secret.address)) return true;
+        const tx = await c.registerPatient(user.name, "");
+        await tx.wait();
+      } else if (user.role === "doctor") {
+        if (await c.isDoctor(secret.address)) return true;
+        const tx = await c.registerDoctor(
+          user.name,
+          user.specialization || "General",
+          user.licenseId || "N/A"
+        );
+        await tx.wait();
+      }
+      return true;
+    } catch (err) {
+      console.error("[chain] identity registration failed:", err.message);
+      throw err;
+    }
+  }, [secret, user, contract]);
 
   const value = useMemo(
     () => ({
       user,
       loadingUser,
-      login,
+      busy,
       register,
+      login,
       logout,
       refreshUser,
       setUser,
 
-      wallet,
-      signer,
-      keyPair,
-      walletBusy,
-      connect,
-      unlockKey,
+      secret,
+      unlocked: Boolean(secret),
+      address: secret?.address || user?.walletAddress || "",
+      keyPair: secret?.keyPair || null,
+      unlockWith,
       contract,
-      walletMatchesAccount,
+      ensureGas,
+      ensureOnChainIdentity,
 
       toast,
       notify,
     }),
     [
-      user, loadingUser, login, register, logout, refreshUser,
-      wallet, signer, keyPair, walletBusy, connect, unlockKey, contract,
-      walletMatchesAccount, toast, notify,
+      user, loadingUser, busy, register, login, logout, refreshUser,
+      secret, unlockWith, contract, ensureGas, ensureOnChainIdentity, toast, notify,
     ]
   );
 

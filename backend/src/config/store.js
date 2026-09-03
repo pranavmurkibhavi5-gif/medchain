@@ -73,6 +73,8 @@ const users = {
       role: data.role,
       walletAddress: lc(data.walletAddress || ""),
       encryptionPublicKey: data.encryptionPublicKey || "",
+      vault: data.vault || null,
+      vaultSalt: data.vaultSalt || "",
       dateOfBirth: data.dateOfBirth || "",
       bloodGroup: data.bloodGroup || "",
       phone: data.phone || "",
