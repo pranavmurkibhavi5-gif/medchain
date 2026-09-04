@@ -10,6 +10,19 @@ every one of those decisions is a permanent blockchain event.
 
 ---
 
+## Live deployment
+
+| | |
+|---|---|
+| Application | https://medchain-dusky-ten.vercel.app |
+| API | https://medchain-api-j6hv.onrender.com |
+| Contract | [`0xAE246FCcad4F7aF88C1c6B3d17FaF2105D345824`](https://sepolia.etherscan.io/address/0xAE246FCcad4F7aF88C1c6B3d17FaF2105D345824) on Ethereum Sepolia |
+
+The contract is deployed and must not be redeployed — the live data is anchored
+to that address. Open the site on a phone; no wallet extension is required.
+
+---
+
 ## The one rule that shapes everything
 
 **The complete medical file is never stored on the blockchain.** Only the
@@ -23,7 +36,7 @@ anyone prove a file has not been altered by re-hashing it.
 
 ```
 React + Vite + Tailwind  (Vercel)
-        |  ethers.js + MetaMask
+        |  ethers.js + embedded wallet
         v
 Node.js + Express API    (Render)
         |                         \
@@ -60,11 +73,17 @@ select file -> validate -> AES-256-GCM encrypt (browser)
 
 ### How keys work without ever exposing a private key
 
-MetaMask will not export a private key, so the app derives one instead. Each
-user signs a fixed domain-separated message; MetaMask's ECDSA is deterministic
-(RFC 6979), so that signature is stable, and hashing it yields a stable
-secp256k1 keypair that lives only in browser memory for the session. The server
-learns only the public half.
+Each user's Ethereum key is derived from their password (PBKDF2-SHA256,
+310,000 iterations) and kept in an AES-GCM sealed vault. The server stores only
+the sealed blob — never the password, never a private key.
+
+From that key the app derives a second, record-encryption keypair: the user
+signs a fixed domain-separated message, ECDSA is deterministic (RFC 6979) so the
+signature is stable, and hashing it yields a stable secp256k1 keypair that lives
+only in browser memory for the session. The server learns only the public half.
+
+See **[MOBILE.md](MOBILE.md)** for why the key moved out of MetaMask, and the
+security trade-off that came with it.
 
 - Every record gets a fresh random AES-256 data key.
 - The data key is sealed to a recipient's public key using ECIES
@@ -87,11 +106,11 @@ decryption key and cannot read a single record — nor can an administrator.
 
 ## Roles
 
-**Patient** — register, connect MetaMask, upload and encrypt records, view and
+**Patient** — register, upload and encrypt records, view and
 download their own, approve/reject requests, grant and revoke doctor access,
 view access history and transaction details.
 
-**Doctor** — register, connect MetaMask, search patients, request access with a
+**Doctor** — register, search patients, request access with a
 reason, track request status, open authorised records (blocked the instant
 access is revoked), view their own activity.
 
@@ -147,9 +166,9 @@ Open http://localhost:5173. Sign in as the demo admin with
 > `backend/.env` (`CONTRACT_ADDRESS`) and `frontend/.env`
 > (`VITE_CONTRACT_ADDRESS`), then restart both.
 
-To use MetaMask against the local chain, add a network with RPC
-`http://127.0.0.1:8545` and chain ID `31337`, and import one of the private
-keys the `npm run chain` terminal prints.
+The app itself needs no wallet extension. If you want to inspect the local
+chain in MetaMask anyway, add a network with RPC `http://127.0.0.1:8545` and
+chain ID `31337`, and import one of the private keys `npm run chain` prints.
 
 ### Runs with zero external accounts
 
@@ -185,7 +204,7 @@ Sepolia, since it sends dozens of transactions.
 After deploying publicly, verify the live system instead:
 
 ```bash
-npm run check:deployment https://your-api.onrender.com https://your-app.vercel.app
+npm run check:deployment https://medchain-api-j6hv.onrender.com https://medchain-dusky-ten.vercel.app
 ```
 
 ---
@@ -194,7 +213,7 @@ npm run check:deployment https://your-api.onrender.com https://your-app.vercel.a
 
 See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the full walkthrough: Sepolia,
 Pinata, MongoDB Atlas, Render and Vercel. After deploying, the site is reachable
-from any laptop with only a browser and MetaMask.
+from any phone or laptop with only a browser — no wallet extension.
 
 ---
 
@@ -215,7 +234,8 @@ backend/           Express API
 
 frontend/          React + Vite + Tailwind
   src/lib/crypto.js     AES-GCM, ECIES, key derivation, validation
-  src/lib/web3.js       MetaMask, contract, network switching
+  src/lib/web3.js       contract address, ABI, network constants
+  src/lib/wallet.js     embedded wallet: sealed vault, signer, nonces
   src/lib/records.js    shared open/verify/share logic
   src/pages/            patient/, doctor/, admin/
 

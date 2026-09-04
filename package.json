@@ -20,7 +20,9 @@
     "preflight:sepolia": "npm --prefix contracts run preflight:sepolia",
     "check:deployment": "node docs/check-deployment.mjs",
     "test:mongo": "node docs/mongo-test-server.cjs",
-    "test:uri": "node docs/test-mongo-uri.cjs"
+    "test:uri": "node docs/test-mongo-uri.cjs",
+    "android:build": "npm --prefix frontend run build:android",
+    "android:open": "npm --prefix frontend run open:android"
   },
   "devDependencies": {
     "@noble/hashes": "^1.6.1",

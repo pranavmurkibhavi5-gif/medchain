@@ -131,7 +131,33 @@ CONTRACT_ADDRESS=<from Step 1>
 EXPLORER_BASE=https://sepolia.etherscan.io
 ADMIN_EMAIL=<your admin email>
 ADMIN_PASSWORD=<a strong password — change it from the default>
+SPONSOR_PRIVATE_KEY=<see below>
+SPONSOR_TOPUP_ETH=0.004
+SPONSOR_MIN_BALANCE_ETH=0.002
+SPONSOR_MAX_TOTAL_ETH=0.05
 ```
+
+### Where `SPONSOR_PRIVATE_KEY` goes
+
+Patients sign their own transactions, so each account needs a little Sepolia
+ETH. The backend tops up every new account once, so no patient ever meets a
+faucet. That requires one funded key.
+
+It belongs **only** in Render → your service → **Environment** → *Add
+Environment Variable*, where Render stores it encrypted. Specifically:
+
+- **Not** in `render.yaml`. The blueprint declares it `sync: false`, so Render
+  prompts for it in the dashboard and never reads it from the repository.
+- **Not** in `frontend/.env` or any `VITE_*` variable — those are compiled into
+  the JavaScript that ships to the browser and are readable by anyone.
+- **Not** in git, a screenshot, a chat message, or the project report.
+
+Use a throwaway account created solely for this, funded from a Sepolia faucet
+with a few tenths of a test ETH. It must never hold real funds. Without it the
+app still runs, but users have to fund their own accounts.
+
+Check it took effect at `/api/health` — `sponsor.enabled` should be `true`. The
+endpoint reports the sponsor's address and balance, never the key.
 
 To generate a JWT secret:
 
@@ -176,10 +202,30 @@ VITE_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 VITE_EXPLORER_BASE=https://sepolia.etherscan.io
 ```
 
-4. Deploy. You get a URL like `https://medchain.vercel.app`.
+> **Set the Type to `Config`, not `Secret`.** Vercel hides a Secret's value
+> behind bullet characters and refuses to reveal it again. Saved as Secret, the
+> contract address was compiled into the bundle as 42 literal `•` characters —
+> the site loaded fine and every blockchain call failed. None of these five are
+> secret: Vite inlines them into browser JavaScript by design, so they are
+> public whatever type you choose. Real secrets live on Render, not here.
+>
+> Vercel will not convert a saved Secret to Config. Delete the variable and add
+> it again.
 
-5. **Go back to Render** and set `CORS_ORIGINS` to your exact Vercel URL, then
-   redeploy the backend. Without this the browser blocks every API call.
+4. Deploy. Vercel assigns a production domain — check **Settings → Domains** for
+   the exact one.
+
+5. **Settings → Deployment Protection → Vercel Authentication → Disabled.**
+   New projects enable this by default, which returns a `302` to a Vercel login
+   for every visitor. Your examiners have no Vercel account.
+
+6. **Go back to Render** and set `CORS_ORIGINS` to your exact Vercel domains,
+   comma separated, no spaces and no trailing slashes. Without this the browser
+   blocks every API call.
+
+> After changing any `VITE_*` variable you must rebuild — Vite bakes them in at
+> build time. **Deployments → ⋯ → Redeploy**, and untick *Use existing Build
+> Cache*, or the old values can be reused.
 
 `frontend/vercel.json` already handles SPA routing, so deep links like
 `/patient/records` resolve correctly.
@@ -193,7 +239,7 @@ really on Sepolia and responding, protected routes are locked, and CORS allows
 your frontend:
 
 ```bash
-npm run check:deployment https://medchain-api.onrender.com https://medchain.vercel.app
+npm run check:deployment https://medchain-api-j6hv.onrender.com https://medchain-dusky-ten.vercel.app
 ```
 
 Every failure it reports maps to an entry in Troubleshooting below.

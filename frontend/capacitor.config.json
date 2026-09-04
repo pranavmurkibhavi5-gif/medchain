@@ -1,0 +1,12 @@
+{
+  "appId": "in.ac.sgbit.medchain",
+  "appName": "MedChain",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "minWebViewVersion": 87
+  }
+}
