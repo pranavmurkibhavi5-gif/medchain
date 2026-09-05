@@ -11,6 +11,8 @@ import { useApp } from "../../context/AppContext";
 import { useI18n } from "../../i18n";
 import { api } from "../../lib/api";
 import { Modal } from "../../components/ui";
+import HealthDetails from "../../components/HealthDetails";
+import MyQrCode from "../../components/MyQrCode";
 import { CONTRACT_ADDRESS, NETWORK_NAME, EXPLORER, shortAddress } from "../../lib/web3";
 
 export default function Profile() {
@@ -49,6 +51,10 @@ export default function Profile() {
           </div>
         </div>
       </section>
+
+      {/* Health details - patients only, encrypted before it leaves the device */}
+      {user?.role === "patient" && <HealthDetails />}
+      {user?.role === "patient" && <MyQrCode />}
 
       {/* Language */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">

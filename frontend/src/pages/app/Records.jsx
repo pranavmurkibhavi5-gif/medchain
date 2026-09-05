@@ -13,6 +13,7 @@ import { api } from "../../lib/api";
 import { formatBytes } from "../../lib/crypto";
 import { openRecord, downloadBlob, isPreviewable } from "../../lib/records";
 import { Spinner, Modal, formatDate } from "../../components/ui";
+import PatientSummary from "../../components/PatientSummary";
 import { EXPLORER } from "../../lib/web3";
 
 export default function Records({ ownerAddress = null, title }) {
@@ -95,6 +96,10 @@ export default function Records({ ownerAddress = null, title }) {
           </Link>
         )}
       </div>
+
+      {/* Who the doctor is treating. Renders nothing for the patient's own
+          list, and nothing when no profile has been shared. */}
+      {ownerAddress && <PatientSummary patientAddress={ownerAddress} />}
 
       {records.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-slate-200 px-6 py-14 text-center">
@@ -190,7 +195,9 @@ export default function Records({ ownerAddress = null, title }) {
             <div className="overflow-hidden rounded-xl border border-slate-200">
               {isPreviewable(opened.meta.type) ? (
                 opened.meta.type.startsWith("image/") ? (
-                  <img src={opened.url} alt="" className="mx-auto max-h-[50vh]" />
+                  <ZoomFrame>
+                    <img src={opened.url} alt="" className="mx-auto block w-full" />
+                  </ZoomFrame>
                 ) : opened.meta.type === "application/pdf" ? (
                   <PdfPreview blob={opened.blob} />
                 ) : (
@@ -245,6 +252,81 @@ function Row({ k, v, mono }) {
     <div>
       <dt className="font-semibold text-slate-500">{k}</dt>
       <dd className={`break-all text-slate-700 ${mono ? "font-mono" : ""}`}>{v}</dd>
+    </div>
+  );
+}
+
+/**
+ * Pinch-and-button zoom for anything shown in the viewer.
+ *
+ * A doctor reading a scan or a lab report needs to enlarge it; before this the
+ * preview was fixed at fit-to-width with no way in. Uses the CSS `zoom`
+ * property rather than `transform: scale()` because `zoom` affects layout, so
+ * the scroll area grows with the content and the whole page stays reachable.
+ */
+function ZoomFrame({ children }) {
+  const t = useT();
+  const [zoom, setZoom] = useState(1);
+  const pinch = useRef(null);
+
+  const clamp = (z) => Math.min(5, Math.max(1, Number(z.toFixed(2))));
+  const spread = (touches) =>
+    Math.hypot(
+      touches[0].clientX - touches[1].clientX,
+      touches[0].clientY - touches[1].clientY
+    );
+
+  const onTouchStart = (e) => {
+    if (e.touches.length === 2) pinch.current = { from: spread(e.touches), at: zoom };
+  };
+  const onTouchMove = (e) => {
+    if (e.touches.length === 2 && pinch.current) {
+      e.preventDefault();
+      setZoom(clamp((pinch.current.at * spread(e.touches)) / pinch.current.from));
+    }
+  };
+  const endPinch = () => { pinch.current = null; };
+
+  return (
+    <div className="relative">
+      <div
+        className="max-h-[55vh] touch-pan-x touch-pan-y overflow-auto bg-slate-100"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={endPinch}
+        onTouchCancel={endPinch}
+        onDoubleClick={() => setZoom((z) => (z > 1 ? 1 : 2))}
+      >
+        <div style={{ zoom }}>{children}</div>
+      </div>
+
+      <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-slate-900/80 px-1 py-1 text-white shadow-lg">
+        <button
+          type="button"
+          aria-label={t("records.zoomOut")}
+          onClick={() => setZoom((z) => clamp(z - 0.5))}
+          disabled={zoom <= 1}
+          className="h-8 w-8 rounded-full text-lg leading-none disabled:opacity-40"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom(1)}
+          className="min-w-[3rem] px-1 text-xs font-semibold tabular-nums"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          aria-label={t("records.zoomIn")}
+          onClick={() => setZoom((z) => clamp(z + 0.5))}
+          disabled={zoom >= 5}
+          className="h-8 w-8 rounded-full text-lg leading-none disabled:opacity-40"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }
@@ -331,17 +413,23 @@ function PdfPreview({ blob }) {
     };
   }, [blob]);
 
+  if (state === "failed") {
+    return <p className="p-8 text-center text-sm text-slate-500">{t("records.cannotPreview")}</p>;
+  }
+
+  // The host stays laid out even while loading: its measured width decides the
+  // raster scale, and a hidden element measures zero, which would render every
+  // page at the fallback width and look blurry on a wide screen.
   return (
-    <div className="max-h-[55vh] overflow-auto bg-slate-100">
+    <div className="relative">
       {state === "loading" && (
-        <div className="flex flex-col items-center py-10">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-100">
           <Spinner className="h-6 w-6 text-brand-600" />
         </div>
       )}
-      {state === "failed" && (
-        <p className="p-8 text-center text-sm text-slate-500">{t("records.cannotPreview")}</p>
-      )}
-      <div ref={hostRef} className="space-y-2 p-2" />
+      <ZoomFrame>
+        <div ref={hostRef} className="min-h-[220px] space-y-2 p-2" />
+      </ZoomFrame>
     </div>
   );
 }

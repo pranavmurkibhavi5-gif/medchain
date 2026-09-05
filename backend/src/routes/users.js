@@ -17,7 +17,9 @@ function directoryEntry(u) {
     hospital: u.hospital,
     licenseId: u.licenseId,
     verified: u.verified,
-    bloodGroup: u.role === "patient" ? u.bloodGroup : undefined,
+    // Blood group is medical data and now lives in the patient's encrypted
+    // health profile, readable only by doctors they have approved. Serving it
+    // here would hand it to every doctor who merely searches for a patient.
     createdAt: u.createdAt,
   };
 }

@@ -9,6 +9,8 @@ import { useApp } from "../../context/AppContext";
 import { useT } from "../../i18n";
 import { api } from "../../lib/api";
 import { Spinner, Modal } from "../../components/ui";
+import QrScanner from "../../components/QrScanner";
+import { addressFromQr } from "../../components/MyQrCode";
 
 export default function FindPatient() {
   const { address, contract, ensureOnChainIdentity, notify } = useApp();
@@ -23,6 +25,8 @@ export default function FindPatient() {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState("");
 
   const search = useCallback(
     async (term = "") => {
@@ -108,10 +112,41 @@ export default function FindPatient() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        <button
+          type="button"
+          onClick={() => { setScanError(""); setScanning(true); }}
+          aria-label={t("qr.scanTitle")}
+          className="btn-ghost border border-slate-200 px-4 text-xl"
+        >
+          🔳
+        </button>
         <button type="submit" className="btn-primary px-5">
           🔍
         </button>
       </form>
+
+      {scanError && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {scanError}
+        </p>
+      )}
+
+      <QrScanner
+        open={scanning}
+        onClose={() => setScanning(false)}
+        onResult={(text) => {
+          setScanning(false);
+          const addr = addressFromQr(text);
+          if (!addr) {
+            setScanError(t("qr.notMedChain"));
+            return;
+          }
+          // Search by address: the patient list is filtered server-side, so
+          // this lands on exactly the person whose code was scanned.
+          setQuery(addr);
+          search(addr);
+        }}
+      />
 
       {loading ? (
         <div className="flex justify-center py-16">

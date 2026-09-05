@@ -7,12 +7,13 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../../context/AppContext";
+import { unshareProfileFrom } from "../../lib/profile-store";
 import { useT } from "../../i18n";
 import { api } from "../../lib/api";
 import { Spinner, Modal } from "../../components/ui";
 
 export default function Doctors() {
-  const { address, contract, notify } = useApp();
+  const { address, keyPair, contract, notify } = useApp();
   const t = useT();
 
   const [rows, setRows] = useState([]);
@@ -60,6 +61,14 @@ export default function Doctors() {
       const tx = await c.revokeAccess(doctorAddress, 0n);
       const receipt = await tx.wait();
       await api.revokeKeys({ doctorAddress });
+
+      // Drop them from the health profile as well, otherwise revoking record
+      // access would leave the patient's details still readable.
+      try {
+        await unshareProfileFrom(keyPair, address, doctorAddress);
+      } catch (err) {
+        console.warn("[profile] could not unshare:", err.message);
+      }
       api.logAudit({
         action: "ACCESS_REVOKED",
         target: doctorAddress,

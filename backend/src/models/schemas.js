@@ -98,8 +98,23 @@ const BlobSchema = new mongoose.Schema(
   { timestamps: false }
 );
 
+// The patient's health details. Stored exactly like a record: the server holds
+// ciphertext plus per-recipient sealed keys, and can read neither. `envelope`
+// is the AES-256-GCM output produced in the browser; `wrappedKeys` holds that
+// data key sealed to the patient and to each doctor they have approved.
+const HealthProfileSchema = new mongoose.Schema(
+  {
+    owner: { type: String, required: true, unique: true, lowercase: true, index: true },
+    envelope: { type: Object, required: true },
+    wrappedKeys: { type: [WrappedKeySchema], default: [] },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { timestamps: false }
+);
+
 module.exports = {
   User: mongoose.model("User", UserSchema),
+  HealthProfile: mongoose.model("HealthProfile", HealthProfileSchema),
   RecordMeta: mongoose.model("RecordMeta", RecordMetaSchema),
   AuditLog: mongoose.model("AuditLog", AuditLogSchema),
   Blob: mongoose.model("Blob", BlobSchema),

@@ -84,6 +84,11 @@ export const api = {
   ensureGas: () => request("/api/wallet/ensure-gas", { method: "POST" }),
   sponsorStatus: () => request("/api/wallet/sponsor"),
 
+  // ---- encrypted health profile ----
+  putHealthProfile: (payload) => request("/api/health-profile", { method: "PUT", body: payload }),
+  myHealthProfile: () => request("/api/health-profile/me"),
+  healthProfileOf: (wallet) => request(`/api/health-profile/${wallet}`),
+
   // --- directory ---
   doctors: (q = "") => request(`/api/users/doctors?q=${encodeURIComponent(q)}`),
   patients: (q = "") => request(`/api/users/patients?q=${encodeURIComponent(q)}`),

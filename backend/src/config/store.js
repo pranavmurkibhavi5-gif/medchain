@@ -18,6 +18,7 @@ let M = null; // mongoose models, when connected
 const mem = {
   users: [],
   records: [],
+  profiles: [],
   logs: [],
   blobs: new Map(),
   seq: 1,
@@ -288,6 +289,55 @@ const records = {
 // ---------------------------------------------------------------------------
 // Audit log
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Health profiles
+//
+// One per patient, holding ciphertext only. Replacing a profile replaces its
+// sealed keys wholesale, which is what makes revocation immediate: a doctor
+// dropped from the list can no longer obtain the key, whatever they cached.
+// ---------------------------------------------------------------------------
+const profiles = {
+  async get(owner) {
+    if (mode === "mongo") return norm(await M.HealthProfile.findOne({ owner: lc(owner) }));
+    return norm(mem.profiles.find((p) => p.owner === lc(owner)));
+  },
+
+  async upsert(owner, data) {
+    const doc = {
+      owner: lc(owner),
+      envelope: data.envelope,
+      wrappedKeys: data.wrappedKeys || [],
+      updatedAt: new Date().toISOString(),
+    };
+    if (mode === "mongo") {
+      return norm(
+        await M.HealthProfile.findOneAndUpdate({ owner: doc.owner }, doc, {
+          new: true,
+          upsert: true,
+        })
+      );
+    }
+    const i = mem.profiles.findIndex((p) => p.owner === doc.owner);
+    if (i >= 0) {
+      mem.profiles[i] = { ...mem.profiles[i], ...doc };
+      return norm(mem.profiles[i]);
+    }
+    doc._id = nextId();
+    mem.profiles.push(doc);
+    return norm(doc);
+  },
+
+  async remove(owner) {
+    if (mode === "mongo") {
+      await M.HealthProfile.deleteOne({ owner: lc(owner) });
+      return true;
+    }
+    const i = mem.profiles.findIndex((p) => p.owner === lc(owner));
+    if (i >= 0) mem.profiles.splice(i, 1);
+    return true;
+  },
+};
+
 const logs = {
   async add(entry) {
     const doc = {
@@ -379,4 +429,4 @@ const blobs = {
   },
 };
 
-module.exports = { connect, getMode, users, records, logs, blobs };
+module.exports = { connect, getMode, users, records, profiles, logs, blobs };

@@ -10,6 +10,7 @@ import { useApp } from "../../context/AppContext";
 import { useT } from "../../i18n";
 import { api } from "../../lib/api";
 import { shareAllRecordKeys, REQUEST_STATUS } from "../../lib/records";
+import { shareProfileWith } from "../../lib/profile-store";
 import { Spinner, Modal, formatDate } from "../../components/ui";
 
 export default function Requests({ onCounts }) {
@@ -82,12 +83,24 @@ export default function Requests({ onCounts }) {
         scope, doc.walletAddress, doc.encryptionPublicKey, keyPair
       );
 
+      // Give the doctor the health profile too, so they can see who they are
+      // treating. Best-effort: a patient who has not filled one in is fine,
+      // and a failure here must not undo an approval already on-chain.
+      let profileShared = false;
+      try {
+        profileShared = await shareProfileWith(keyPair, address, doc.walletAddress);
+      } catch (err) {
+        console.warn("[profile] could not share with doctor:", err.message);
+      }
+
       api.logAudit({
         action: "ACCESS_GRANTED",
         target: doc.walletAddress,
         recordId: req.recordId,
         txHash: receipt.hash,
-        detail: `Approved request #${req.id}; ${shared} key(s) shared`,
+        detail: `Approved request #${req.id}; ${shared} key(s) shared${
+          profileShared ? "; health profile shared" : ""
+        }`,
       }).catch(() => {});
 
       notify(t("requests.approved"), "success");
