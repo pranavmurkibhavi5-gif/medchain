@@ -112,8 +112,42 @@ const HealthProfileSchema = new mongoose.Schema(
   { timestamps: false }
 );
 
+// An appointment between a patient and a doctor.
+//
+// Deliberately off-chain. The contract governs custody of medical records and
+// is fixed; scheduling is coordination, needs to be changed and cancelled
+// freely, and gains nothing from immutability. Putting it on-chain would also
+// publish who is seeing which specialist, forever.
+//
+// The parties, time and status are stored in the clear because the server has
+// to list and sort them. `reasonEnvelope` is not: what the patient is coming
+// in for is clinical, so it is encrypted in the browser and sealed to the
+// patient and that one doctor, exactly like a record.
+const AppointmentSchema = new mongoose.Schema(
+  {
+    patient: { type: String, required: true, lowercase: true, index: true },
+    doctor: { type: String, required: true, lowercase: true, index: true },
+    patientName: { type: String, default: "" },
+    doctorName: { type: String, default: "" },
+    scheduledFor: { type: Date, required: true, index: true },
+    status: {
+      type: String,
+      enum: ["requested", "confirmed", "declined", "cancelled", "completed"],
+      default: "requested",
+      index: true,
+    },
+    reasonEnvelope: { type: Object, default: null },
+    reasonKeys: { type: [WrappedKeySchema], default: [] },
+    reply: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { timestamps: false }
+);
+
 module.exports = {
   User: mongoose.model("User", UserSchema),
+  Appointment: mongoose.model("Appointment", AppointmentSchema),
   HealthProfile: mongoose.model("HealthProfile", HealthProfileSchema),
   RecordMeta: mongoose.model("RecordMeta", RecordMetaSchema),
   AuditLog: mongoose.model("AuditLog", AuditLogSchema),

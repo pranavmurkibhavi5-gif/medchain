@@ -83,6 +83,22 @@ export default function DoctorHome() {
         🔍 {t("doctor.findPatient")}
       </Link>
 
+      <Link
+        to="/app/appointments"
+        className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition active:scale-[0.99]"
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-2xl">
+          📅
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-slate-900">{t("nav.appointments")}</span>
+          <span className="block truncate text-sm text-slate-500">
+            {t("appointments.doctorHint")}
+          </span>
+        </span>
+        <span className="text-slate-400">›</span>
+      </Link>
+
       <section className="rounded-2xl border border-slate-200 bg-white">
         <div className="border-b border-slate-100 px-4 py-3">
           <h2 className="font-semibold text-slate-900">{t("doctor.approvedRecords")}</h2>

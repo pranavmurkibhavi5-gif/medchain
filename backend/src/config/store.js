@@ -19,6 +19,7 @@ const mem = {
   users: [],
   records: [],
   profiles: [],
+  appointments: [],
   logs: [],
   blobs: new Map(),
   seq: 1,
@@ -338,6 +339,63 @@ const profiles = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Appointments
+// ---------------------------------------------------------------------------
+const appointments = {
+  async create(data) {
+    const doc = {
+      patient: lc(data.patient),
+      doctor: lc(data.doctor),
+      patientName: data.patientName || "",
+      doctorName: data.doctorName || "",
+      scheduledFor: data.scheduledFor,
+      status: "requested",
+      reasonEnvelope: data.reasonEnvelope || null,
+      reasonKeys: data.reasonKeys || [],
+      reply: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    if (mode === "mongo") return norm(await M.Appointment.create(doc));
+    doc._id = nextId();
+    mem.appointments.push(doc);
+    return norm(doc);
+  },
+
+  async findById(id) {
+    if (mode === "mongo") {
+      if (!mongoose.isValidObjectId(id)) return null;
+      return norm(await M.Appointment.findById(id));
+    }
+    return norm(mem.appointments.find((a) => String(a._id) === String(id)));
+  },
+
+  async listFor(address, role) {
+    const key = role === "doctor" ? "doctor" : "patient";
+    if (mode === "mongo") {
+      const docs = await M.Appointment.find({ [key]: lc(address) }).sort({ scheduledFor: 1 });
+      return docs.map(norm);
+    }
+    return mem.appointments
+      .filter((a) => a[key] === lc(address))
+      .sort((a, b) => new Date(a.scheduledFor) - new Date(b.scheduledFor))
+      .map(norm);
+  },
+
+  async update(id, patch) {
+    const next = { ...patch, updatedAt: new Date().toISOString() };
+    if (mode === "mongo") {
+      if (!mongoose.isValidObjectId(id)) return null;
+      return norm(await M.Appointment.findByIdAndUpdate(id, next, { new: true }));
+    }
+    const row = mem.appointments.find((a) => String(a._id) === String(id));
+    if (!row) return null;
+    Object.assign(row, next);
+    return norm(row);
+  },
+};
+
 const logs = {
   async add(entry) {
     const doc = {
@@ -429,4 +487,4 @@ const blobs = {
   },
 };
 
-module.exports = { connect, getMode, users, records, profiles, logs, blobs };
+module.exports = { connect, getMode, users, records, profiles, appointments, logs, blobs };

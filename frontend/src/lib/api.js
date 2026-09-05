@@ -89,6 +89,12 @@ export const api = {
   myHealthProfile: () => request("/api/health-profile/me"),
   healthProfileOf: (wallet) => request(`/api/health-profile/${wallet}`),
 
+  // ---- appointments ----
+  bookAppointment: (payload) => request("/api/appointments", { method: "POST", body: payload }),
+  myAppointments: () => request("/api/appointments/mine"),
+  updateAppointment: (id, payload) =>
+    request(`/api/appointments/${id}`, { method: "PATCH", body: payload }),
+
   // --- directory ---
   doctors: (q = "") => request(`/api/users/doctors?q=${encodeURIComponent(q)}`),
   patients: (q = "") => request(`/api/users/patients?q=${encodeURIComponent(q)}`),

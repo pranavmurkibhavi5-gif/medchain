@@ -16,6 +16,7 @@ import PatientHome from "./pages/app/PatientHome";
 import DoctorHome from "./pages/app/DoctorHome";
 import Upload from "./pages/app/Upload";
 import Records from "./pages/app/Records";
+import Appointments from "./pages/app/Appointments";
 import Requests from "./pages/app/Requests";
 import Doctors from "./pages/app/Doctors";
 import FindPatient from "./pages/app/FindPatient";
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="doctors" element={<Doctors />} />
         <Route path="find" element={<FindPatient />} />
         <Route path="patient/:address" element={<PatientRecords />} />
+        <Route path="appointments" element={<Appointments />} />
         <Route path="activity" element={<Activity />} />
         <Route path="profile" element={<Profile />} />
       </Route>

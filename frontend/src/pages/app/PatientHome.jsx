@@ -120,6 +120,8 @@ export default function PatientHome({ onCounts }) {
               label={t("dashboard.myRecords")} sub={t("dashboard.myRecordsSub")} />
         <Card to="/app/requests" icon="🔔" tone="amber" value={pending} urgent={pending > 0}
               label={t("dashboard.pendingRequests")} sub={t("dashboard.pendingRequestsSub")} />
+        <Card to="/app/appointments" icon="📅" tone="emerald" value=""
+              label={t("nav.appointments")} sub={t("dashboard.appointmentsSub")} />
         <Card to="/app/doctors" icon="👨‍⚕️" tone="violet" value={doctors}
               label={t("dashboard.doctorsWithAccess")} sub={t("dashboard.doctorsWithAccessSub")} />
       </div>

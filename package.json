@@ -23,7 +23,8 @@
     "test:uri": "node docs/test-mongo-uri.cjs",
     "android:build": "npm --prefix frontend run build:android",
     "android:open": "npm --prefix frontend run open:android",
-    "test:profile": "node docs/profile-test.mjs"
+    "test:profile": "node docs/profile-test.mjs",
+    "test:appointments": "node docs/appointment-test.mjs"
   },
   "devDependencies": {
     "@noble/hashes": "^1.6.1",
