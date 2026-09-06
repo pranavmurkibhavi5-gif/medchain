@@ -10,6 +10,7 @@ import { useApp } from "../context/AppContext";
 import { useT } from "../i18n";
 import { Toast } from "./ui";
 import Avatar from "./Avatar";
+import MedicalBackdrop from "./MedicalBackdrop";
 
 function IconHome(p) {
   return (
@@ -73,9 +74,11 @@ export default function MobileLayout({ pendingCount = 0 }) {
   const tabs = user?.role === "doctor" ? DOCTOR_TABS : PATIENT_TABS;
 
   return (
-    <div className="app-aurora flex min-h-[100dvh] flex-col sm:flex-row">
+    <div className="app-aurora relative flex min-h-[100dvh] flex-col sm:flex-row">
+      <MedicalBackdrop />
+
       {/* Wide-screen rail */}
-      <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white sm:flex sm:flex-col">
+      <aside className="hidden w-60 shrink-0 border-r border-white/60 bg-white/70 backdrop-blur-xl sm:flex sm:flex-col">
         <button
           onClick={() => navigate("/app")}
           className="flex items-center gap-2.5 px-5 py-5 text-left"
@@ -92,12 +95,15 @@ export default function MobileLayout({ pendingCount = 0 }) {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition ${
-                  isActive ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`
+                `group relative flex items-center gap-3 overflow-hidden rounded-xl px-3.5 py-3
+                 text-sm font-medium transition-all duration-200 ${
+                   isActive
+                     ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-[0_6px_18px_rgb(29,111,224,0.30)]"
+                     : "text-slate-600 hover:translate-x-0.5 hover:bg-white/70 hover:text-brand-700"
+                 }`
               }
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
               <span className="flex-1">{t(key)}</span>
               {badge && pendingCount > 0 && (
                 <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white">

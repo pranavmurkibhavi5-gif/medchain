@@ -12,6 +12,7 @@ import { useT } from "../../i18n";
 import { api } from "../../lib/api";
 import { Spinner } from "../../components/ui";
 import DashboardHero from "../../components/DashboardHero";
+import SystemStatus from "../../components/SystemStatus";
 
 function Card({ to, icon, tone, label, sub, value, urgent }) {
   const tones = {
@@ -119,6 +120,8 @@ export default function PatientHome({ onCounts }) {
           </span>
         </Link>
       )}
+
+      <SystemStatus />
 
       <div className="space-y-3">
         <Card to="/app/records" icon="📁" tone="brand" value={records.length}

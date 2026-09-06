@@ -10,6 +10,7 @@
  */
 import { useT } from "../i18n";
 import Avatar from "./Avatar";
+import CountUp from "./CountUp";
 
 export default function DashboardHero({ name, wallet, subtitle, stats = [] }) {
   const t = useT();
@@ -28,7 +29,9 @@ export default function DashboardHero({ name, wallet, subtitle, stats = [] }) {
       />
 
       <div className="relative flex items-center gap-3">
-        <Avatar wallet={wallet} name={name} size="lg" ring />
+        <span className="avatar-ring shrink-0">
+          <Avatar wallet={wallet} name={name} size="lg" className="ring-2 ring-white/90" />
+        </span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wider text-white/70">
             {t("app.name")}
@@ -46,7 +49,9 @@ export default function DashboardHero({ name, wallet, subtitle, stats = [] }) {
               className="rounded-2xl border border-white/20 bg-white/10 px-2 py-3 text-center backdrop-blur-sm"
             >
               <dt className="text-[11px] font-medium leading-tight text-white/75">{s.label}</dt>
-              <dd className="mt-0.5 text-2xl font-extrabold tabular-nums">{s.value}</dd>
+              <dd className="mt-0.5 text-2xl font-extrabold">
+                <CountUp value={s.value} />
+              </dd>
             </div>
           ))}
         </dl>

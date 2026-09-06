@@ -25,18 +25,71 @@
      dark text on white cards keeps its contrast.
      -------------------------------------------------------------------- */
   .app-aurora {
-    background-color: #f6f9ff;
+    background-color: #f4f8ff;
     background-image:
-      radial-gradient(58rem 32rem at 12% -8%, rgba(43, 134, 245, 0.20), transparent 60%),
-      radial-gradient(46rem 30rem at 108% 6%, rgba(16, 185, 129, 0.16), transparent 62%),
-      radial-gradient(40rem 26rem at 50% 108%, rgba(139, 92, 246, 0.14), transparent 60%);
+      radial-gradient(58rem 32rem at 12% -8%, rgba(43, 134, 245, 0.22), transparent 60%),
+      radial-gradient(46rem 30rem at 108% 4%, rgba(13, 148, 136, 0.18), transparent 62%),
+      radial-gradient(44rem 28rem at 50% 108%, rgba(29, 111, 224, 0.14), transparent 60%);
     background-attachment: fixed;
+  }
+
+  /* ---- backdrop layers (see MedicalBackdrop.jsx) ---------------------- */
+
+  /* Nodes breathe rather than blink: a slow scale and opacity cycle. */
+  .mb-node {
+    fill: #2b86f5;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: mb-pulse 6.5s ease-in-out infinite;
+  }
+
+  /* Connections fade in and out, suggesting traffic without drawing it. */
+  .mb-link {
+    animation: mb-link 9s ease-in-out infinite;
+  }
+
+  /* The trace sweeps left to right, then repeats. One stroked path. */
+  .mb-ecg {
+    stroke-dasharray: 260 2600;
+    animation: mb-sweep 9s linear infinite;
+    filter: drop-shadow(0 0 6px rgba(13, 148, 136, 0.35));
+  }
+
+  .mb-mote {
+    background: radial-gradient(circle at 35% 35%, rgba(43, 134, 245, 0.55), rgba(13, 148, 136, 0.12) 70%);
+    animation-name: mb-drift;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    will-change: transform, opacity;
+  }
+
+  /* A phone does not need the full display, and its battery would rather not. */
+  @media (max-width: 640px) {
+    .mb-mote:nth-child(n + 7) {
+      display: none;
+    }
+    .mb-ecg {
+      animation-duration: 14s;
+    }
   }
 
   /* Frosted surface for cards sitting on the aurora. */
   .glass {
     @apply rounded-2xl border border-white/70 bg-white/80 shadow-[0_8px_30px_rgb(15,23,42,0.06)]
-           backdrop-blur-md;
+           backdrop-blur-md transition duration-200;
+  }
+
+  /* Anything interactive built on .glass lifts very slightly on hover and
+     settles on press. Two pixels, not a bounce. */
+  a.glass:hover,
+  button.glass:hover,
+  .glass-hover:hover {
+    @apply -translate-y-0.5 border-brand-200/80 shadow-[0_14px_40px_rgb(29,111,224,0.14)];
+  }
+  a.glass:active,
+  button.glass:active,
+  .glass-hover:active {
+    @apply translate-y-0 scale-[0.995];
   }
 
   /* --------------------------------------------------------------------
@@ -83,13 +136,49 @@
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
-           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed
+    @apply relative isolate inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl
+           px-4 py-2.5 text-sm font-semibold transition-all duration-200
+           disabled:cursor-not-allowed disabled:opacity-50
            focus:outline-none focus:ring-2 focus:ring-offset-2;
   }
+
+  /* A shine passes across on hover. It is a pseudo-element sliding on
+     transform, so it costs nothing to animate and never touches layout. */
+  .btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.35) 45%,
+      transparent 70%
+    );
+    transform: translateX(-120%);
+    transition: transform 0.7s ease;
+  }
+  .btn:hover:not(:disabled)::after {
+    transform: translateX(120%);
+  }
+
+  .btn:hover:not(:disabled) {
+    @apply -translate-y-0.5;
+  }
+  .btn:active:not(:disabled) {
+    @apply translate-y-0 scale-[0.97] duration-75;
+  }
+  .btn:disabled::after {
+    display: none;
+  }
+
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 shadow-sm
-           disabled:hover:bg-brand-600;
+    @apply btn text-white shadow-[0_6px_18px_rgb(29,111,224,0.28)]
+           focus:ring-brand-500;
+    background-image: linear-gradient(135deg, #1d6fe0 0%, #2b86f5 55%, #0d9488 160%);
+  }
+  .btn-primary:hover:not(:disabled) {
+    @apply shadow-[0_10px_26px_rgb(29,111,224,0.38)];
   }
   .btn-ghost {
     @apply btn bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 focus:ring-slate-300;
@@ -98,7 +187,29 @@
     @apply btn bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-400 shadow-sm;
   }
   .btn-success {
-    @apply btn bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-400 shadow-sm;
+    @apply btn text-white shadow-[0_6px_18px_rgb(5,150,105,0.28)] focus:ring-emerald-400;
+    background-image: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  }
+
+  /* ---- status indicators ---------------------------------------------- */
+  .status-dot {
+    @apply relative inline-flex h-2 w-2 shrink-0 rounded-full;
+  }
+  .status-dot::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.55;
+    animation: mb-ping 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  /* Circular profile frame with a slowly rotating conic ring. */
+  .avatar-ring {
+    @apply relative rounded-full p-[2px];
+    background: conic-gradient(from 0deg, #2b86f5, #0d9488, #2b86f5);
+    animation: mb-spin 9s linear infinite;
   }
   .btn-sm {
     @apply px-3 py-1.5 text-xs rounded-lg;
@@ -185,5 +296,65 @@
   }
   to {
     transform: translate3d(-12px, 10px, 0) scale(1.08);
+  }
+}
+
+@keyframes mb-pulse {
+  0%, 100% { opacity: 0.30; transform: scale(1); }
+  50%      { opacity: 0.80; transform: scale(1.7); }
+}
+
+@keyframes mb-link {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 0.85; }
+}
+
+@keyframes mb-sweep {
+  from { stroke-dashoffset: 2860; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes mb-drift {
+  0%   { transform: translate3d(0, 0, 0);        opacity: 0.15; }
+  50%  { transform: translate3d(18px, -26px, 0); opacity: 0.55; }
+  100% { transform: translate3d(0, 0, 0);        opacity: 0.15; }
+}
+
+@keyframes mb-ping {
+  0%        { transform: scale(1);   opacity: 0.55; }
+  70%, 100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes mb-spin {
+  to { transform: rotate(360deg); }
+}
+
+/*
+ * Anyone who has asked for less motion gets a still version of exactly the
+ * same design: the layers keep their colour and position, they simply stop
+ * moving. Nothing is hidden, so nothing is lost.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .mb-node,
+  .mb-link,
+  .mb-ecg,
+  .mb-mote,
+  .status-dot::before,
+  .avatar-ring,
+  .hero-orb {
+    animation: none !important;
+  }
+  .mb-ecg {
+    stroke-dasharray: none;
+  }
+  .btn::after {
+    display: none;
+  }
+  .btn:hover:not(:disabled),
+  .btn:active:not(:disabled),
+  a.glass:hover,
+  button.glass:hover,
+  .glass-hover:hover {
+    transform: none;
   }
 }

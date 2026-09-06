@@ -462,6 +462,14 @@ export default {
     noKey: "That person has not finished setting up their account",
     notEmergency: "Do not use messages for emergencies. Contact a hospital directly.",
   },
+  status: {
+    title: "System status",
+    blockchain: "Blockchain",
+    storage: "Encrypted storage",
+    database: "Records index",
+    checking: "checking...",
+    note: "Live status, read from the server. Nothing here is hard-coded to green.",
+  },
   qr: {
     myId: "My MedChain ID",
     myIdHint: "Let a doctor scan this instead of typing your address",

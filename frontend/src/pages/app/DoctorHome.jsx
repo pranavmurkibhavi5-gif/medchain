@@ -8,6 +8,7 @@ import { useT } from "../../i18n";
 import { api } from "../../lib/api";
 import { Spinner, formatDate } from "../../components/ui";
 import DashboardHero from "../../components/DashboardHero";
+import SystemStatus from "../../components/SystemStatus";
 
 export default function DoctorHome() {
   const { user, address, contract, unlocked } = useApp();
@@ -74,6 +75,8 @@ export default function DoctorHome() {
       <Link to="/app/find" className="btn-primary flex w-full items-center justify-center gap-2 py-4 text-base">
         🔍 {t("doctor.findPatient")}
       </Link>
+
+      <SystemStatus />
 
       <Link
         to="/app/messages"
