@@ -151,9 +151,9 @@ export function Modal({ open, onClose, title, children, footer, wide = false }) 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-900/55 backdrop-blur-md" onClick={onClose} />
       <div
-        className={`relative w-full ${wide ? "max-w-3xl" : "max-w-lg"} animate-fade-up rounded-2xl bg-white shadow-2xl`}
+        className={`glass relative w-full ${wide ? "max-w-3xl" : "max-w-lg"} animate-fade-up shadow-2xl`}
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <h3 className="font-semibold text-slate-900">{title}</h3>

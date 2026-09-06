@@ -80,7 +80,7 @@ export default function DoctorHome() {
 
       <Link
         to="/app/messages"
-        className="glass flex items-center gap-4 border p-4 transition active:scale-[0.99]"
+        className="glass-card flex items-center gap-4 border p-4"
       >
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-2xl">
           💬
@@ -94,7 +94,7 @@ export default function DoctorHome() {
 
       <Link
         to="/app/appointments"
-        className="glass flex items-center gap-4 border p-4 transition active:scale-[0.99]"
+        className="glass-card flex items-center gap-4 border p-4"
       >
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-2xl">
           📅

@@ -24,7 +24,7 @@ function Card({ to, icon, tone, label, sub, value, urgent }) {
   return (
     <Link
       to={to}
-      className={`glass flex items-center gap-4 border p-4 transition active:scale-[0.99] ${
+      className={`glass-card flex items-center gap-4 border p-4 ${
         urgent ? "border-amber-300 shadow-sm" : "border-slate-200"
       }`}
     >

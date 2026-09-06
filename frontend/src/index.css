@@ -55,6 +55,49 @@
     filter: drop-shadow(0 0 6px rgba(13, 148, 136, 0.35));
   }
 
+  /* The DNA strand: two sine paths that sway out of phase. */
+  .mb-dna path {
+    animation: dna-sway 14s ease-in-out infinite;
+  }
+  .mb-dna path:nth-child(2) {
+    animation-delay: -7s;
+  }
+  .mb-dna line {
+    animation: dna-rung 14s ease-in-out infinite;
+  }
+
+  /* Circuit traces: a dash that crawls along the track, like data moving. */
+  .mb-circuit {
+    stroke-dasharray: 12 220;
+    animation: circuit-flow 16s linear infinite;
+  }
+
+  /* Large blurred orbs. Two, moving slowly on different paths. */
+  .mb-orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(60px);
+    animation: orb-float 26s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  /* Light that follows the pointer. The position comes from CSS variables
+     the layout sets, so no element is re-rendered as the mouse moves. */
+  .mb-cursor-glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      22rem 22rem at var(--mx, 50%) var(--my, 40%),
+      rgba(43, 134, 245, 0.16),
+      transparent 70%
+    );
+    transition: background-position 0.2s ease-out;
+  }
+
+  .mb-glyph {
+    animation: glyph-drift 22s ease-in-out infinite;
+  }
+
   .mb-mote {
     background: radial-gradient(circle at 35% 35%, rgba(43, 134, 245, 0.55), rgba(13, 148, 136, 0.12) 70%);
     animation-name: mb-drift;
@@ -64,19 +107,81 @@
   }
 
   /* A phone does not need the full display, and its battery would rather not. */
+  /* A phone gets the same design with the expensive parts removed: fewer
+     motes, no blur-heavy orbs, no cursor light (there is no cursor), and a
+     slower trace. The layout and colours are unchanged. */
   @media (max-width: 640px) {
-    .mb-mote:nth-child(n + 7) {
+    .mb-mote:nth-child(n + 7),
+    .mb-orb,
+    .mb-cursor-glow,
+    .mb-glyph {
       display: none;
     }
     .mb-ecg {
       animation-duration: 14s;
     }
+    .glass-card {
+      animation: none;
+    }
   }
 
   /* Frosted surface for cards sitting on the aurora. */
+  /* --------------------------------------------------------------------
+     Glass.
+
+     Three things separate this from a plain translucent panel: an inner
+     highlight along the top edge (the inset shadow), a faint gradient
+     overlay so the surface is not flat, and a real border. Opacity stays at
+     0.80 rather than something more dramatic - a lab report has to stay
+     readable through it, and that is not negotiable.
+     -------------------------------------------------------------------- */
   .glass {
-    @apply rounded-2xl border border-white/70 bg-white/80 shadow-[0_8px_30px_rgb(15,23,42,0.06)]
-           backdrop-blur-md transition duration-200;
+    @apply relative rounded-2xl border border-white/70 backdrop-blur-md transition duration-200;
+    background-image: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.88) 0%,
+      rgba(255, 255, 255, 0.74) 55%,
+      rgba(240, 247, 255, 0.80) 100%
+    );
+    box-shadow:
+      0 8px 30px rgb(15 23 42 / 0.07),
+      inset 0 1px 0 rgb(255 255 255 / 0.85);
+  }
+
+  /* A card that floats and catches the light. Used for dashboard panels. */
+  .glass-card {
+    @apply glass overflow-hidden;
+    animation: glass-float 9s ease-in-out infinite;
+  }
+
+  /* The reflection that travels across on hover. A pseudo-element sliding on
+     transform, so it never touches layout. */
+  .glass-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      105deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.55) 48%,
+      transparent 66%
+    );
+    transform: translateX(-130%);
+    transition: transform 0.9s ease;
+  }
+  .glass-card:hover::after {
+    transform: translateX(130%);
+  }
+
+  .glass-card:hover {
+    @apply -translate-y-1 border-brand-200;
+    box-shadow:
+      0 18px 45px rgb(29 111 224 / 0.18),
+      inset 0 1px 0 rgb(255 255 255 / 0.9);
+  }
+  .glass-card:active {
+    @apply translate-y-0 scale-[0.995];
   }
 
   /* Anything interactive built on .glass lifts very slightly on hover and
@@ -170,6 +275,25 @@
   }
   .btn:disabled::after {
     display: none;
+  }
+
+  /* Ripple. A radial highlight that expands from the centre on press and is
+     gone in a fifth of a second - felt more than seen, which is the point. */
+  .btn::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: -1;
+    height: 12px;
+    width: 12px;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.55);
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  .btn:active:not(:disabled)::before {
+    animation: btn-ripple 0.45s ease-out;
   }
 
   .btn-primary {
@@ -325,6 +449,41 @@
   70%, 100% { transform: scale(2.4); opacity: 0; }
 }
 
+@keyframes glass-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+@keyframes btn-ripple {
+  0%   { transform: translate(-50%, -50%) scale(0);  opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(26); opacity: 0; }
+}
+
+@keyframes dna-sway {
+  0%, 100% { transform: translateX(0) scaleY(1); }
+  50%      { transform: translateX(6px) scaleY(1.04); }
+}
+
+@keyframes dna-rung {
+  0%, 100% { opacity: 0.18; }
+  50%      { opacity: 0.5; }
+}
+
+@keyframes circuit-flow {
+  from { stroke-dashoffset: 232; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes orb-float {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(40px, -30px, 0) scale(1.12); }
+}
+
+@keyframes glyph-drift {
+  0%, 100% { transform: translateY(0) rotate(0deg);    opacity: 0.10; }
+  50%      { transform: translateY(-24px) rotate(6deg); opacity: 0.22; }
+}
+
 @keyframes mb-spin {
   to { transform: rotate(360deg); }
 }
@@ -339,10 +498,26 @@
   .mb-link,
   .mb-ecg,
   .mb-mote,
+  .mb-orb,
+  .mb-glyph,
+  .mb-circuit,
+  .mb-dna path,
+  .mb-dna line,
+  .glass-card,
   .status-dot::before,
   .avatar-ring,
   .hero-orb {
     animation: none !important;
+  }
+  .mb-circuit {
+    stroke-dasharray: none;
+  }
+  .glass-card::after,
+  .btn::before {
+    display: none;
+  }
+  .glass-card:hover {
+    transform: none;
   }
   .mb-ecg {
     stroke-dasharray: none;
