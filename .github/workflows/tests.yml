@@ -1,0 +1,94 @@
+# Runs the test suite on every push and pull request.
+#
+# These are the checks that guard the security claims - that a revoked doctor
+# really loses access, that a recovery key opens the same wallet as the
+# password, that an outsider cannot unseal a message. They are worth running
+# automatically rather than remembering to run them.
+#
+# The contract tests are kept separate because they compile Solidity and take
+# considerably longer than the rest.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  logic:
+    name: Application logic
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      # The docs tests import modules from frontend/src directly and resolve
+      # ethers and @noble from the root install, exactly as they do locally.
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Password strength and validation
+        run: node docs/password-test.mjs
+
+      - name: Doctor directory and avatars
+        run: node docs/directory-test.mjs
+
+      - name: Encrypted health profile
+        run: node docs/profile-test.mjs
+
+      - name: Appointments
+        run: node docs/appointment-test.mjs
+
+      - name: Messaging and expiry
+        run: node docs/chat-test.mjs
+
+      - name: Account recovery
+        run: node docs/recovery-test.mjs
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      # A build failure here means the app would not ship, which is worth
+      # catching before it reaches a phone.
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  contract:
+    name: Smart contract
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install
+        working-directory: contracts
+        run: npm install --no-audit --no-fund
+
+      - name: Hardhat tests
+        working-directory: contracts
+        run: npm test

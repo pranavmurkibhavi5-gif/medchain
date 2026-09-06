@@ -80,6 +80,13 @@ export const api = {
   changePassword: (payload) =>
     request("/api/auth/change-password", { method: "POST", body: payload }),
 
+  // ---- account recovery ----
+  putRecovery: (payload) => request("/api/auth/recovery", { method: "POST", body: payload }),
+  recoverStart: (payload) =>
+    request("/api/auth/recover/start", { method: "POST", body: payload }),
+  recoverFinish: (payload) =>
+    request("/api/auth/recover/finish", { method: "POST", body: payload }),
+
   // --- embedded wallet ---
   putVault: (payload) => request("/api/wallet/vault", { method: "POST", body: payload }),
   getVault: () => request("/api/wallet/vault"),

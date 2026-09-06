@@ -9,6 +9,7 @@ import MobileLayout from "./components/MobileLayout";
 import Onboarding from "./pages/Onboarding";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Recover from "./pages/Recover";
 import NotFound from "./pages/NotFound";
 
 import Unlock from "./pages/app/Unlock";
@@ -79,6 +80,7 @@ export default function App() {
       <Route path="/welcome" element={<Onboarding />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/recover" element={<Recover />} />
 
       <Route path="/app" element={<Protected pendingCount={pendingCount} />}>
         <Route

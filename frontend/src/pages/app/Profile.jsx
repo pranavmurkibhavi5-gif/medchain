@@ -14,6 +14,7 @@ import { Modal } from "../../components/ui";
 import HealthDetails from "../../components/HealthDetails";
 import MyQrCode from "../../components/MyQrCode";
 import ChangePassword from "../../components/ChangePassword";
+import RecoveryKey from "../../components/RecoveryKey";
 import Accessibility from "../../components/Accessibility";
 import ProfilePhoto from "../../components/ProfilePhoto";
 import DoctorDetails from "../../components/DoctorDetails";
@@ -86,6 +87,8 @@ export default function Profile() {
       </section>
 
       <ChangePassword />
+
+      <RecoveryKey />
 
       <Accessibility />
 

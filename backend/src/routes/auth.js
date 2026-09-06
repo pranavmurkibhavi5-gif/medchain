@@ -1,6 +1,9 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const nodeCrypto = require("node:crypto");
 const { ethers } = require("ethers");
+const config = require("../config");
 const store = require("../config/store");
 const { sign, requireAuth } = require("../middleware/auth");
 
@@ -15,11 +18,12 @@ function publicUser(u) {
   // so it is kept out of general responses.
   // The avatar is base64 and would bloat every /me response, so only its
   // presence is reported; the image itself is fetched from its own endpoint.
-  const { passwordHash, vault, avatar, ...rest } = u;
+  const { passwordHash, vault, avatar, recoveryVault, ...rest } = u;
   return {
     ...rest,
     hasVault: Boolean(vault),
     hasAvatar: Boolean(avatar && avatar.data),
+    hasRecovery: Boolean(recoveryVault),
   };
 }
 
@@ -267,6 +271,163 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
       actor: user.walletAddress || "",
       actorRole: user.role,
       detail: user.vault ? "Password changed and vault re-sealed" : "Password changed",
+      ip: req.ip,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Account recovery
+//
+// The password derives the key to a user's records, so forgetting it would
+// otherwise destroy them. A recovery code seals a second copy of the same
+// wallet key; the server stores both sealed blobs and can open neither.
+//
+// The delicate part is authenticating a recovery attempt. The server cannot
+// check the recovery code - it never sees it, which is the entire point - so
+// a naive endpoint that simply accepted a new password would be an
+// account-takeover route: anyone could lock a patient out of their own
+// records.
+//
+// Instead the caller proves possession of the wallet key itself. The server
+// issues a short-lived challenge, the client opens the recovery vault, signs
+// the challenge with the key inside, and the server checks that the signature
+// recovers to the address already on the account. Only someone holding the
+// recovery code can produce that signature, and the code never leaves the
+// device.
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/auth/recovery
+ * Store (or replace) the sealed recovery vault. Requires a live session.
+ */
+router.post("/recovery", requireAuth, async (req, res, next) => {
+  try {
+    const { vault, salt } = req.body || {};
+    if (!vault || !vault.ct || !vault.iv || !salt) {
+      return res.status(400).json({ error: "A sealed recovery vault is required" });
+    }
+
+    await store.users.update(req.user.id, {
+      recoveryVault: vault,
+      recoverySalt: salt,
+      recoverySetAt: new Date().toISOString(),
+    });
+
+    await store.logs.add({
+      action: "RECOVERY_KEY_SET",
+      actor: req.user.walletAddress || "",
+      actorRole: req.user.role,
+      detail: "Recovery key created or replaced",
+      ip: req.ip,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/auth/recover/start
+ * Hand back the sealed recovery vault and a challenge to sign.
+ *
+ * This does reveal whether an email is registered. Returning nothing would
+ * make recovery impossible, so the trade-off is accepted deliberately: an
+ * attacker learns an address exists and receives ciphertext they cannot open.
+ * The auth rate limiter applies here as it does to sign-in.
+ */
+router.post("/recover/start", async (req, res, next) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const user = email ? await store.users.findByEmail(email) : null;
+
+    if (!user || !user.recoveryVault) {
+      return res.status(404).json({ error: "No recovery key is set up for that account" });
+    }
+    if (!user.walletAddress) {
+      return res.status(409).json({ error: "That account has no blockchain identity to verify" });
+    }
+
+    // Stateless and short-lived, so a restart cannot strand a recovery.
+    const challenge = jwt.sign(
+      { sub: String(user.id), purpose: "recover", nonce: nodeCrypto.randomUUID() },
+      config.jwtSecret,
+      { expiresIn: "10m" }
+    );
+
+    res.json({ vault: user.recoveryVault, salt: user.recoverySalt, challenge });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/auth/recover/finish
+ * Verify the signature, then set the new password and re-sealed vault together.
+ */
+router.post("/recover/finish", async (req, res, next) => {
+  try {
+    const { challenge, signature, newPassword, vault, salt } = req.body || {};
+
+    if (!challenge || !signature) {
+      return res.status(400).json({ error: "A signed challenge is required" });
+    }
+    if (!newPassword || String(newPassword).length < MIN_PASSWORD) {
+      return res.status(400).json({ error: `The new password must be at least ${MIN_PASSWORD} characters` });
+    }
+    if (!vault || !vault.ct || !vault.iv || !salt) {
+      return res.status(400).json({
+        error: "A re-sealed vault is required, otherwise your records would become unreadable",
+      });
+    }
+
+    let claims;
+    try {
+      claims = jwt.verify(challenge, config.jwtSecret);
+    } catch {
+      return res.status(401).json({ error: "That recovery attempt has expired. Start again." });
+    }
+    if (claims.purpose !== "recover") {
+      return res.status(401).json({ error: "Invalid challenge" });
+    }
+
+    const user = await store.users.findById(claims.sub);
+    if (!user) return res.status(404).json({ error: "Account not found" });
+
+    let signer;
+    try {
+      signer = ethers.verifyMessage(challenge, signature);
+    } catch {
+      return res.status(401).json({ error: "That signature could not be read" });
+    }
+
+    if (signer.toLowerCase() !== String(user.walletAddress).toLowerCase()) {
+      await store.logs.add({
+        action: "RECOVERY_FAILED",
+        actor: signer.toLowerCase(),
+        target: String(user.walletAddress).toLowerCase(),
+        detail: "Recovery signature did not match the account",
+        ip: req.ip,
+      });
+      return res.status(401).json({ error: "That recovery key does not belong to this account" });
+    }
+
+    await store.users.update(user.id, {
+      passwordHash: await bcrypt.hash(String(newPassword), 10),
+      vault,
+      vaultSalt: salt,
+    });
+
+    await store.logs.add({
+      action: "RECOVERY_COMPLETED",
+      actor: String(user.walletAddress).toLowerCase(),
+      actorRole: user.role,
+      detail: "Password reset with a recovery key; vault re-sealed",
       ip: req.ip,
     });
 

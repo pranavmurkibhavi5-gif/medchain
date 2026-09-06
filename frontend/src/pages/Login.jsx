@@ -113,7 +113,13 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-slate-500">
+        <p className="mt-5 text-center">
+          <Link to="/recover" className="text-sm font-semibold text-brand-600">
+            {t("recovery.forgot")}
+          </Link>
+        </p>
+
+        <p className="mt-4 text-center text-slate-500">
           {t("auth.noAccount")}{" "}
           <Link to="/register" className="font-bold text-brand-600">
             {t("auth.register")}

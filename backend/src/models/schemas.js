@@ -27,6 +27,13 @@ const UserSchema = new mongoose.Schema(
     vault: { type: Object, default: null },
     vaultSalt: { type: String, default: "" },
 
+    // A second sealed copy of the same wallet key, locked with a high-entropy
+    // recovery code the user keeps. The server holds two blobs it cannot open
+    // and no way to derive either secret.
+    recoveryVault: { type: Object, default: null },
+    recoverySalt: { type: String, default: "" },
+    recoverySetAt: { type: Date, default: null },
+
     // Patient fields
     dateOfBirth: { type: String, default: "" },
     bloodGroup: { type: String, default: "" },
