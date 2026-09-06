@@ -191,5 +191,79 @@ router.patch("/profile", requireAuth, async (req, res, next) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/auth/change-password
+//
+// The password does two jobs in this system: it authenticates the account and
+// it derives the key that opens the user's wallet vault. Changing one without
+// the other would leave them signed in but unable to decrypt a single record,
+// so both move together, in one request.
+//
+// The browser opens the vault with the old password and re-seals it under the
+// new one before calling this. The server therefore receives a new hash and an
+// already re-sealed vault, and writes both or neither. It still never sees a
+// password in the clear beyond the moment it verifies one.
+// ---------------------------------------------------------------------------
+const MIN_PASSWORD = 8;
+
+router.post("/change-password", requireAuth, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, vault, salt } = req.body || {};
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Both the current and the new password are required" });
+    }
+    if (String(newPassword).length < MIN_PASSWORD) {
+      return res.status(400).json({ error: `The new password must be at least ${MIN_PASSWORD} characters` });
+    }
+    if (String(newPassword) === String(currentPassword)) {
+      return res.status(400).json({ error: "The new password must be different" });
+    }
+
+    const user = await store.users.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: "Account not found" });
+
+    const ok = await bcrypt.compare(String(currentPassword), user.passwordHash);
+    if (!ok) {
+      await store.logs.add({
+        action: "PASSWORD_CHANGE_FAILED",
+        actor: user.walletAddress || "",
+        actorRole: user.role,
+        detail: "Wrong current password",
+        ip: req.ip,
+      });
+      return res.status(401).json({ error: "That is not your current password" });
+    }
+
+    // An account with a vault MUST supply a re-sealed one. Refusing here is
+    // what stops a caller locking themselves out of their own records.
+    if (user.vault && (!vault || !vault.ct || !vault.iv || !salt)) {
+      return res.status(400).json({
+        error: "A re-sealed vault is required, otherwise your records would become unreadable",
+      });
+    }
+
+    const patch = { passwordHash: await bcrypt.hash(String(newPassword), 10) };
+    if (user.vault) {
+      patch.vault = vault;
+      patch.vaultSalt = salt;
+    }
+
+    await store.users.update(user.id, patch);
+
+    await store.logs.add({
+      action: "PASSWORD_CHANGED",
+      actor: user.walletAddress || "",
+      actorRole: user.role,
+      detail: user.vault ? "Password changed and vault re-sealed" : "Password changed",
+      ip: req.ip,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
 module.exports.publicUser = publicUser;

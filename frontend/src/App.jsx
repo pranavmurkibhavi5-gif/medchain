@@ -17,6 +17,7 @@ import DoctorHome from "./pages/app/DoctorHome";
 import Upload from "./pages/app/Upload";
 import Records from "./pages/app/Records";
 import Appointments from "./pages/app/Appointments";
+import Info from "./pages/app/Info";
 import Requests from "./pages/app/Requests";
 import Doctors from "./pages/app/Doctors";
 import FindPatient from "./pages/app/FindPatient";
@@ -87,6 +88,9 @@ export default function App() {
         <Route path="find" element={<FindPatient />} />
         <Route path="patient/:address" element={<PatientRecords />} />
         <Route path="appointments" element={<Appointments />} />
+        <Route path="help" element={<Info page="help" />} />
+        <Route path="about" element={<Info page="about" />} />
+        <Route path="privacy" element={<Info page="privacy" />} />
         <Route path="activity" element={<Activity />} />
         <Route path="profile" element={<Profile />} />
       </Route>

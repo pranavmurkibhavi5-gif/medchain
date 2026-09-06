@@ -77,6 +77,8 @@ export const api = {
   me: () => request("/api/auth/me"),
   linkWallet: (payload) => request("/api/auth/link-wallet", { method: "POST", body: payload }),
   updateProfile: (payload) => request("/api/auth/profile", { method: "PATCH", body: payload }),
+  changePassword: (payload) =>
+    request("/api/auth/change-password", { method: "POST", body: payload }),
 
   // --- embedded wallet ---
   putVault: (payload) => request("/api/wallet/vault", { method: "POST", body: payload }),

@@ -24,7 +24,8 @@
     "android:build": "npm --prefix frontend run build:android",
     "android:open": "npm --prefix frontend run open:android",
     "test:profile": "node docs/profile-test.mjs",
-    "test:appointments": "node docs/appointment-test.mjs"
+    "test:appointments": "node docs/appointment-test.mjs",
+    "test:password": "node docs/password-test.mjs"
   },
   "devDependencies": {
     "@noble/hashes": "^1.6.1",

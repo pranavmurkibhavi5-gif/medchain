@@ -13,6 +13,8 @@ import { api } from "../../lib/api";
 import { Modal } from "../../components/ui";
 import HealthDetails from "../../components/HealthDetails";
 import MyQrCode from "../../components/MyQrCode";
+import ChangePassword from "../../components/ChangePassword";
+import Accessibility from "../../components/Accessibility";
 import { CONTRACT_ADDRESS, NETWORK_NAME, EXPLORER, shortAddress } from "../../lib/web3";
 
 export default function Profile() {
@@ -76,6 +78,29 @@ export default function Profile() {
             </button>
           ))}
         </div>
+      </section>
+
+      <ChangePassword />
+
+      <Accessibility />
+
+      {/* Help, About, Privacy */}
+      <section className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        {[
+          { to: "/app/help", icon: "❓", label: "help.title" },
+          { to: "/app/privacy", icon: "🔐", label: "privacy.title" },
+          { to: "/app/about", icon: "ℹ️", label: "about.title" },
+        ].map((row) => (
+          <button
+            key={row.to}
+            onClick={() => navigate(row.to)}
+            className="flex w-full items-center gap-3 px-5 py-4 text-left"
+          >
+            <span className="text-xl">{row.icon}</span>
+            <span className="flex-1 font-semibold text-slate-900">{t(row.label)}</span>
+            <span className="text-slate-400">›</span>
+          </button>
+        ))}
       </section>
 
       {/* Security, in plain words */}
