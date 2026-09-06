@@ -26,6 +26,25 @@ const lc = (s) => (s || "").toLowerCase();
 
 const MAX_MONTHS_AHEAD = 6;
 
+/**
+ * The most that may be charged to book an appointment.
+ *
+ * This is a deliberate restriction, not a limitation. Real money moves when a
+ * patient pays a UPI address, and this project is an academic demonstration
+ * that has no merchant registration, no refund process and no dispute
+ * handling. Capping the booking charge at one rupee keeps the flow genuine -
+ * a real transfer, a real UTR, a real confirmation - while making it
+ * impossible to take a meaningful sum from anyone.
+ *
+ * A doctor may record a higher consultation fee on their profile; only the
+ * amount payable at booking is capped.
+ */
+const MAX_BOOKING_FEE = 1;
+
+/** A UPI UTR is twelve digits. Shape only - no bank can be asked here. */
+const UTR_PATTERN = /^\d{12}$/;
+const normaliseUtr = (v) => String(v || "").replace(/\D/g, "");
+
 /** Only the two people involved may see or change an appointment. */
 function isParty(appt, address) {
   const me = lc(address);
@@ -95,10 +114,14 @@ router.post("/", requireAuth, requireRole("patient"), requireWallet, async (req,
             .map((k) => ({ forAddress: lc(k.forAddress), envelope: k.envelope }))
         : [],
       // Taken from the doctor's profile, never from the request body: a
-      // client must not be able to decide what it owes.
+      // client must not be able to decide what it owes. Then capped, so no
+      // demonstration can take a meaningful amount from anyone.
       payment: {
-        amount: Number(doctor.consultationFee || 0),
+        // Clamped at both ends: Math.min alone would let a negative fee
+        // through, and a negative charge is a refund nobody authorised.
+        amount: Math.min(Math.max(Number(doctor.consultationFee) || 0, 0), MAX_BOOKING_FEE),
         status: "none",
+        utr: "",
         claimedAt: null,
         confirmedAt: null,
       },
@@ -223,9 +246,34 @@ router.patch("/:id/payment", requireAuth, requireWallet, async (req, res, next) 
     }
 
     const payment = { ...(appt.payment || {}), status };
-    if (status === "claimed") payment.claimedAt = new Date().toISOString();
+
+    if (status === "claimed") {
+      // A claim has to carry a reference. Without one the doctor has nothing
+      // to match against their statement, and "I paid" is unfalsifiable.
+      const utr = normaliseUtr(req.body?.utr);
+      if (!UTR_PATTERN.test(utr)) {
+        return res.status(400).json({
+          error: "Enter the 12-digit UTR or reference number from your UPI app",
+        });
+      }
+
+      // The same transaction cannot pay for two appointments. This is a real
+      // check the server CAN make; whether the money arrived is not.
+      const mine = await store.appointments.listFor(lc(appt.patient), "patient");
+      const reused = mine.find((a) => a.id !== appt.id && a.payment?.utr === utr);
+      if (reused) {
+        return res.status(409).json({
+          error: "That reference number has already been used for another appointment",
+        });
+      }
+
+      payment.utr = utr;
+      payment.claimedAt = new Date().toISOString();
+    }
+
     if (status === "confirmed") payment.confirmedAt = new Date().toISOString();
     if (status === "none") {
+      payment.utr = "";
       payment.claimedAt = null;
       payment.confirmedAt = null;
     }
@@ -237,7 +285,7 @@ router.patch("/:id/payment", requireAuth, requireWallet, async (req, res, next) 
       actor: me,
       actorRole: req.user.role,
       target: isDoctor ? lc(appt.patient) : lc(appt.doctor),
-      detail: `Consultation fee marked ${status}`,
+      detail: `Consultation fee marked ${status}${payment.utr ? ` (UTR ${payment.utr})` : ""}`,
       ip: req.ip,
     });
 

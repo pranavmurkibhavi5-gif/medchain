@@ -17,7 +17,7 @@ import { api } from "../../lib/api";
 import { Spinner, Modal, formatDate } from "../../components/ui";
 import { OPEN_STATUSES, STATUS_TONE, nextHour, toLocalInput } from "../../lib/appointments";
 import { bookAppointment, listAppointments, setStatus } from "../../lib/appointments-store";
-import { PAYMENT_STATUS, formatFee, paymentSummary } from "../../lib/payments";
+import { PAYMENT_STATUS, bookingFee, formatFee, formatUtr, paymentSummary } from "../../lib/payments";
 import PayDoctor from "../../components/PayDoctor";
 
 export default function Appointments() {
@@ -279,7 +279,7 @@ export default function Appointments() {
 
           {(() => {
             const doc = doctors.find((d) => d.walletAddress === pickedDoctor);
-            const amount = Number(doc?.consultationFee || 0);
+            const amount = bookingFee(doc?.consultationFee);
             if (!amount) return null;
             return (
               <p className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -353,6 +353,15 @@ function Group({ title, list, isDoctor, busyId, onChange, onPayment, t, muted = 
                       {t((PAYMENT_STATUS[a.payment.status] || PAYMENT_STATUS.none).label)}
                     </span>
                     <span className="text-slate-500">{paymentSummary(a, t)}</span>
+                  </p>
+                )}
+
+                {a.payment?.utr && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    <span className="font-semibold">{t("payment.utrShort")}: </span>
+                    <span className="select-all font-mono tracking-wider text-slate-700">
+                      {formatUtr(a.payment.utr)}
+                    </span>
                   </p>
                 )}
               </div>

@@ -8,10 +8,16 @@
  * and the fact that a claim is never dressed up as a confirmation.
  */
 import {
+  MAX_BOOKING_FEE,
   PAYMENT_STATUS,
+  UTR_LENGTH,
+  bookingFee,
   formatFee,
+  formatUtr,
   isPayable,
   isValidUpiId,
+  isValidUtr,
+  normaliseUtr,
   paymentSummary,
   upiLink,
 } from "../frontend/src/lib/payments.js";
@@ -100,6 +106,36 @@ ok("confirmed is not payable", !isPayable(confirmed));
 ok("waived is not payable", !isPayable(waived));
 ok("a free appointment is not payable", !isPayable(free));
 ok("a missing payment block is not payable", !isPayable({}));
+
+sec("6. The UTR");
+ok("a twelve-digit reference is accepted", isValidUtr("123456789012"));
+ok("spacing does not matter", isValidUtr("1234 5678 9012"));
+ok("hyphens do not matter", isValidUtr("1234-5678-9012"));
+ok("eleven digits is rejected", !isValidUtr("12345678901"));
+ok("thirteen digits is rejected", !isValidUtr("1234567890123"));
+ok("letters are rejected", !isValidUtr("12345678901A"));
+ok("empty is rejected", !isValidUtr(""));
+ok("the documented length is twelve", UTR_LENGTH === 12);
+ok("normalise keeps only digits", normaliseUtr(" 1234-5678 9012 ") === "123456789012");
+ok("formatted in groups of four", formatUtr("123456789012") === "1234 5678 9012");
+
+// The claim worth pinning down: a well-formed UTR is not proof of payment.
+// isValidUtr says the shape is plausible; nothing here contacts a bank.
+ok(
+  "a valid UTR does not by itself make an appointment paid",
+  paymentSummary({ payment: { amount: 1, status: "claimed", utr: "123456789012" } }, t).includes(
+    "waiting for the doctor"
+  )
+);
+
+sec("7. The booking cap");
+ok("the cap is one rupee", MAX_BOOKING_FEE === 1);
+ok("a large fee is capped at booking", bookingFee(500) === 1);
+ok("a one rupee fee is unchanged", bookingFee(1) === 1);
+ok("free stays free", bookingFee(0) === 0);
+ok("a blank fee stays free", bookingFee("") === 0);
+ok("a negative fee becomes zero, not a refund", bookingFee(-50) === 0, String(bookingFee(-50)));
+ok("nonsense input becomes zero", bookingFee("abc") === 0, String(bookingFee("abc")));
 
 console.log("\n" + "=".repeat(25));
 console.log(`  ${pass} passed, ${fail} failed`);

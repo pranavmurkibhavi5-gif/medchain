@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { useT } from "../i18n";
 import { api } from "../lib/api";
-import { formatFee, isValidUpiId, upiLink } from "../lib/payments";
+import { UTR_LENGTH, formatFee, isValidUpiId, isValidUtr, normaliseUtr, upiLink } from "../lib/payments";
 import { Spinner } from "./ui";
 
 export default function PayDoctor({ appointment, doctor, onPaid }) {
@@ -26,6 +26,8 @@ export default function PayDoctor({ appointment, doctor, onPaid }) {
   const canvasRef = useRef(null);
   const [qrImage, setQrImage] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [utr, setUtr] = useState("");
+  const [error, setError] = useState("");
 
   const amount = Number(appointment?.payment?.amount || 0);
   const vpa = doctor?.upiId || "";
@@ -78,13 +80,23 @@ export default function PayDoctor({ appointment, doctor, onPaid }) {
   }, [doctor, link]);
 
   const claim = async () => {
+    if (!isValidUtr(utr)) {
+      setError(t("payment.utrBad"));
+      return;
+    }
+
     setBusy(true);
+    setError("");
     try {
-      await api.setAppointmentPayment(appointment.id, { status: "claimed" });
+      await api.setAppointmentPayment(appointment.id, {
+        status: "claimed",
+        utr: normaliseUtr(utr),
+      });
       notify(t("payment.claimSent"), "success");
       onPaid?.();
     } catch (err) {
-      notify(err.message, "error");
+      // A reused reference comes back from the server, not from here.
+      setError(err.message);
     } finally {
       setBusy(false);
     }
@@ -131,7 +143,36 @@ export default function PayDoctor({ appointment, doctor, onPaid }) {
             </a>
           )}
 
-          <button onClick={claim} disabled={busy} className="btn-ghost w-full border border-slate-200">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">
+              {t("payment.utrLabel")}
+            </span>
+            <input
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={UTR_LENGTH + 4}
+              className="input-lg text-center font-mono tracking-widest"
+              placeholder="123456789012"
+              value={utr}
+              onChange={(e) => {
+                setUtr(normaliseUtr(e.target.value));
+                setError("");
+              }}
+            />
+            <span className="mt-1 block text-xs text-slate-400">{t("payment.utrHint")}</span>
+          </label>
+
+          {error && (
+            <p className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+              {error}
+            </p>
+          )}
+
+          <button
+            onClick={claim}
+            disabled={busy || !isValidUtr(utr)}
+            className="btn-ghost w-full border border-slate-200 disabled:opacity-50"
+          >
             {busy ? <Spinner className="h-4 w-4" /> : t("payment.iHavePaid")}
           </button>
 

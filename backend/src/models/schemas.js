@@ -196,6 +196,12 @@ const AppointmentSchema = new mongoose.Schema(
         enum: ["none", "claimed", "confirmed", "waived"],
         default: "none",
       },
+      // The UTR (Unique Transaction Reference) the patient reads off their
+      // UPI app. The server checks its shape and that no other appointment
+      // already quotes it; it cannot check it against a bank, because that
+      // needs a payment gateway this project does not have. The doctor
+      // matching it to their own statement is still the real verification.
+      utr: { type: String, default: "" },
       claimedAt: { type: Date, default: null },
       confirmedAt: { type: Date, default: null },
     },

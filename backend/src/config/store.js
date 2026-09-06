@@ -371,6 +371,7 @@ const appointments = {
       payment: data.payment || {
         amount: Number(data.paymentAmount || 0),
         status: "none",
+        utr: "",
         claimedAt: null,
         confirmedAt: null,
       },

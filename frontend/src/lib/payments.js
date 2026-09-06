@@ -29,6 +29,38 @@ export const PAYMENT_STATUS = {
 };
 
 /**
+ * The most that may be charged at booking, mirrored from the server.
+ *
+ * The server is the authority - it caps the amount when the appointment is
+ * created - but showing the same number here keeps the interface honest
+ * about what will actually be asked for.
+ */
+export const MAX_BOOKING_FEE = 1;
+
+/**
+ * A UPI UTR (Unique Transaction Reference) is twelve digits.
+ *
+ * This checks the shape and nothing more. Confirming that a payment actually
+ * reached an account needs a payment gateway or bank API, which this project
+ * does not have - so a well-formed UTR means "plausible", never "paid". The
+ * doctor matching it against their own statement is the real check, and the
+ * interface says so.
+ */
+export const UTR_LENGTH = 12;
+
+export const normaliseUtr = (value = "") => String(value).replace(/\D/g, "");
+
+export function isValidUtr(value = "") {
+  return new RegExp(`^\\d{${UTR_LENGTH}}$`).test(normaliseUtr(value));
+}
+
+/** "1234 5678 9012" - grouped so a long number can be read back aloud. */
+export function formatUtr(value = "") {
+  const digits = normaliseUtr(value);
+  return (digits.match(/.{1,4}/g) || []).join(" ");
+}
+
+/**
  * UPI IDs look like name@bank.
  *
  * The handle after @ is alphanumeric - okaxis, ybl, paytm, okhdfcbank - which
@@ -69,6 +101,16 @@ export function upiLink({ vpa, name = "", amount = 0, note = "" }) {
 }
 
 /** Is a fee actually being asked for on this appointment? */
+/**
+ * What will actually be charged at booking.
+ *
+ * Clamped at both ends. Math.min alone would happily pass a negative fee
+ * through, and a negative charge is not a discount - it is a refund nobody
+ * authorised.
+ */
+export const bookingFee = (fee) =>
+  Math.min(Math.max(Number(fee) || 0, 0), MAX_BOOKING_FEE);
+
 export const isPayable = (appointment) =>
   Number(appointment?.payment?.amount || 0) > 0 &&
   ["none", "claimed"].includes(appointment?.payment?.status || "none");
