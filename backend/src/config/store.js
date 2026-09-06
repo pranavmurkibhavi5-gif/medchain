@@ -20,6 +20,7 @@ const mem = {
   records: [],
   profiles: [],
   appointments: [],
+  messages: [],
   logs: [],
   blobs: new Map(),
   seq: 1,
@@ -403,6 +404,107 @@ const appointments = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Messages
+//
+// In Mongo mode expiry is enforced by a TTL index, so rows disappear even if
+// the app never runs again. pruneExpired covers the in-memory store, and acts
+// as a belt-and-braces filter in Mongo mode because the TTL monitor only
+// sweeps about once a minute.
+// ---------------------------------------------------------------------------
+const messages = {
+  async create(data) {
+    const doc = {
+      thread: data.thread,
+      from: lc(data.from),
+      to: lc(data.to),
+      fromName: data.fromName || "",
+      envelope: data.envelope,
+      keys: data.keys || [],
+      sentAt: new Date().toISOString(),
+      readAt: null,
+      expiresAt: null,
+    };
+    if (mode === "mongo") return norm(await M.Message.create(doc));
+    doc._id = nextId();
+    mem.messages.push(doc);
+    return norm(doc);
+  },
+
+  async findById(id) {
+    if (mode === "mongo") {
+      if (!mongoose.isValidObjectId(id)) return null;
+      return norm(await M.Message.findById(id));
+    }
+    return norm(mem.messages.find((m) => String(m._id) === String(id)));
+  },
+
+  async listThread(thread) {
+    if (mode === "mongo") {
+      const docs = await M.Message.find({ thread }).sort({ sentAt: 1 });
+      return docs.map(norm);
+    }
+    return mem.messages
+      .filter((m) => m.thread === thread)
+      .sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
+      .map(norm);
+  },
+
+  async listForUser(address) {
+    const me = lc(address);
+    if (mode === "mongo") {
+      const docs = await M.Message.find({ $or: [{ from: me }, { to: me }] }).sort({ sentAt: -1 });
+      return docs.map(norm);
+    }
+    return mem.messages
+      .filter((m) => m.from === me || m.to === me)
+      .sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))
+      .map(norm);
+  },
+
+  /** Start the 24-hour clock on messages addressed to `reader`. */
+  async markRead(thread, reader, readAt, expiresAt) {
+    const me = lc(reader);
+    if (mode === "mongo") {
+      await M.Message.updateMany(
+        { thread, to: me, readAt: null },
+        { $set: { readAt, expiresAt } }
+      );
+      return true;
+    }
+    for (const m of mem.messages) {
+      if (m.thread === thread && m.to === me && !m.readAt) {
+        m.readAt = readAt.toISOString();
+        m.expiresAt = expiresAt.toISOString();
+      }
+    }
+    return true;
+  },
+
+  async remove(id) {
+    if (mode === "mongo") {
+      if (mongoose.isValidObjectId(id)) await M.Message.deleteOne({ _id: id });
+      return true;
+    }
+    const i = mem.messages.findIndex((m) => String(m._id) === String(id));
+    if (i >= 0) mem.messages.splice(i, 1);
+    return true;
+  },
+
+  async pruneExpired() {
+    const now = Date.now();
+    if (mode === "mongo") {
+      await M.Message.deleteMany({ expiresAt: { $ne: null, $lte: new Date(now) } });
+      return true;
+    }
+    for (let i = mem.messages.length - 1; i >= 0; i--) {
+      const exp = mem.messages[i].expiresAt;
+      if (exp && new Date(exp).getTime() <= now) mem.messages.splice(i, 1);
+    }
+    return true;
+  },
+};
+
 const logs = {
   async add(entry) {
     const doc = {
@@ -494,4 +596,6 @@ const blobs = {
   },
 };
 
-module.exports = { connect, getMode, users, records, profiles, appointments, logs, blobs };
+module.exports = {
+  connect, getMode, users, records, profiles, appointments, messages, logs, blobs,
+};

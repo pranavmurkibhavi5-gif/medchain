@@ -15,6 +15,66 @@
 }
 
 @layer components {
+  /* --------------------------------------------------------------------
+     Ambient background.
+
+     Layered radial gradients rather than blurred elements: a large
+     backdrop-filter is expensive to paint in an Android WebView, and this
+     costs nothing to composite. The tints are drawn from the brand palette
+     so the app still looks like one product, and they stay pale enough that
+     dark text on white cards keeps its contrast.
+     -------------------------------------------------------------------- */
+  .app-aurora {
+    background-color: #f6f9ff;
+    background-image:
+      radial-gradient(58rem 32rem at 12% -8%, rgba(43, 134, 245, 0.20), transparent 60%),
+      radial-gradient(46rem 30rem at 108% 6%, rgba(16, 185, 129, 0.16), transparent 62%),
+      radial-gradient(40rem 26rem at 50% 108%, rgba(139, 92, 246, 0.14), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  /* Frosted surface for cards sitting on the aurora. */
+  .glass {
+    @apply rounded-2xl border border-white/70 bg-white/80 shadow-[0_8px_30px_rgb(15,23,42,0.06)]
+           backdrop-blur-md;
+  }
+
+  /* --------------------------------------------------------------------
+     Dashboard hero.
+
+     A deep brand gradient with a faint grid over it, suggesting a ledger
+     without resorting to stock circuit-board imagery. The drift is slow and
+     disabled entirely for anyone who has asked for reduced motion.
+     -------------------------------------------------------------------- */
+  .hero-gradient {
+    background-image:
+      radial-gradient(28rem 18rem at 88% -20%, rgba(255, 255, 255, 0.28), transparent 60%),
+      linear-gradient(135deg, #1857b4 0%, #1d6fe0 45%, #2b86f5 100%);
+  }
+
+  .hero-grid::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.10) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.10) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(70% 70% at 70% 20%, #000 0%, transparent 75%);
+    -webkit-mask-image: radial-gradient(70% 70% at 70% 20%, #000 0%, transparent 75%);
+    pointer-events: none;
+  }
+
+  .hero-orb {
+    animation: orb-drift 18s ease-in-out infinite alternate;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-orb {
+      animation: none;
+    }
+  }
+
   .card {
     @apply bg-white rounded-2xl border border-slate-200/80 shadow-sm;
   }
@@ -117,4 +177,13 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
   background-clip: content-box;
+}
+
+@keyframes orb-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-12px, 10px, 0) scale(1.08);
+  }
 }

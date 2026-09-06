@@ -26,7 +26,8 @@
     "test:profile": "node docs/profile-test.mjs",
     "test:appointments": "node docs/appointment-test.mjs",
     "test:password": "node docs/password-test.mjs",
-    "test:directory": "node docs/directory-test.mjs"
+    "test:directory": "node docs/directory-test.mjs",
+    "test:chat": "node docs/chat-test.mjs"
   },
   "devDependencies": {
     "@noble/hashes": "^1.6.1",

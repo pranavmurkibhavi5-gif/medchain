@@ -264,48 +264,110 @@ function Row({ k, v, mono }) {
  * property rather than `transform: scale()` because `zoom` affects layout, so
  * the scroll area grows with the content and the whole page stays reachable.
  */
-function ZoomFrame({ children }) {
+// Zooming works by setting the content's actual width, not with the CSS
+// `zoom` property and not with transform: scale().
+//
+// `zoom` was wrong: a child with width:100% resolves against the scaled
+// coordinate space, so the image came out the same physical width - or
+// smaller - however far you zoomed in. transform: scale() has the opposite
+// problem: it paints larger without changing layout, so the scroll area never
+// grows and the magnified part is unreachable.
+//
+// Making the wrapper `zoom * 100%` wide is literal: at 200% the page really is
+// twice the pane's width, so it looks twice as big and overflow-auto gives you
+// the scrolling to reach it.
+//
+// The floor is 25% rather than 0, because at zero the document would vanish.
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.25;
+const clampZoom = (z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(z.toFixed(2))));
+
+function ZoomFrame({ children, zoom: controlledZoom, onZoomChange }) {
   const t = useT();
-  const [zoom, setZoom] = useState(1);
-  const pinch = useRef(null);
-
-  const clamp = (z) => Math.min(5, Math.max(1, Number(z.toFixed(2))));
-  const spread = (touches) =>
-    Math.hypot(
-      touches[0].clientX - touches[1].clientX,
-      touches[0].clientY - touches[1].clientY
-    );
-
-  const onTouchStart = (e) => {
-    if (e.touches.length === 2) pinch.current = { from: spread(e.touches), at: zoom };
+  // Uncontrolled by default (images), controlled when a viewer needs to know
+  // the level - the PDF viewer re-rasterises its pages when it changes.
+  const [ownZoom, setOwnZoom] = useState(1);
+  const zoom = controlledZoom ?? ownZoom;
+  const setZoom = (next) => {
+    const value = typeof next === "function" ? next(zoom) : next;
+    if (onZoomChange) onZoomChange(value);
+    else setOwnZoom(value);
   };
-  const onTouchMove = (e) => {
-    if (e.touches.length === 2 && pinch.current) {
+  const paneRef = useRef(null);
+
+  // Touch handling is attached by hand rather than through React's onTouchMove.
+  // React registers touchmove as a PASSIVE listener at the root, so calling
+  // preventDefault() from a React handler is silently ignored and the browser
+  // keeps the gesture for scrolling - which is why pinching did nothing.
+  // A non-passive listener on the element itself can actually claim it.
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return undefined;
+
+    let start = null;
+
+    const spread = (touches) =>
+      Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+
+    const onStart = (e) => {
+      if (e.touches.length === 2) {
+        start = { from: spread(e.touches), at: zoom };
+      }
+    };
+
+    const onMove = (e) => {
+      if (e.touches.length !== 2 || !start) return;
+      // Now effective, because this listener is non-passive.
       e.preventDefault();
-      setZoom(clamp((pinch.current.at * spread(e.touches)) / pinch.current.from));
-    }
-  };
-  const endPinch = () => { pinch.current = null; };
+      const ratio = spread(e.touches) / start.from;
+      if (Number.isFinite(ratio) && ratio > 0) setZoom(clampZoom(start.at * ratio));
+    };
+
+    const onEnd = () => {
+      start = null;
+    };
+
+    pane.addEventListener("touchstart", onStart, { passive: true });
+    pane.addEventListener("touchmove", onMove, { passive: false });
+    pane.addEventListener("touchend", onEnd, { passive: true });
+    pane.addEventListener("touchcancel", onEnd, { passive: true });
+
+    return () => {
+      pane.removeEventListener("touchstart", onStart);
+      pane.removeEventListener("touchmove", onMove);
+      pane.removeEventListener("touchend", onEnd);
+      pane.removeEventListener("touchcancel", onEnd);
+    };
+    // `zoom` is read when a pinch begins, so the listeners are rebound when it
+    // changes. Rebinding is cheap and keeps the starting scale correct.
+  }, [zoom]);
 
   return (
     <div className="relative">
       <div
-        className="max-h-[55vh] touch-pan-x touch-pan-y overflow-auto bg-slate-100"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={endPinch}
-        onTouchCancel={endPinch}
-        onDoubleClick={() => setZoom((z) => (z > 1 ? 1 : 2))}
+        ref={paneRef}
+        className="max-h-[55vh] overflow-auto bg-slate-100"
+        // One finger scrolls, two fingers are ours. Set here rather than with
+        // utility classes, where pan-x and pan-y overrode one another and left
+        // the browser owning the gesture.
+        style={{ touchAction: "pan-x pan-y" }}
+        onDoubleClick={() => setZoom((z) => (z > 1 ? 1 : MAX_ZOOM))}
       >
-        <div style={{ zoom }}>{children}</div>
+        <div className="mx-auto" style={{ width: `${zoom * 100}%` }}>
+          {children}
+        </div>
       </div>
 
       <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-slate-900/80 px-1 py-1 text-white shadow-lg">
         <button
           type="button"
           aria-label={t("records.zoomOut")}
-          onClick={() => setZoom((z) => clamp(z - 0.5))}
-          disabled={zoom <= 1}
+          onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))}
+          disabled={zoom <= MIN_ZOOM}
           className="h-8 w-8 rounded-full text-lg leading-none disabled:opacity-40"
         >
           −
@@ -320,8 +382,8 @@ function ZoomFrame({ children }) {
         <button
           type="button"
           aria-label={t("records.zoomIn")}
-          onClick={() => setZoom((z) => clamp(z + 0.5))}
-          disabled={zoom >= 5}
+          onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))}
+          disabled={zoom >= MAX_ZOOM}
           className="h-8 w-8 rounded-full text-lg leading-none disabled:opacity-40"
         >
           +
@@ -347,6 +409,20 @@ function PdfPreview({ blob }) {
   const t = useT();
   const hostRef = useRef(null);
   const [state, setState] = useState("loading"); // loading | ready | failed
+
+  // Zoom lives here rather than inside ZoomFrame, because the pages have to be
+  // rasterised again at the new level. Stretching a canvas is what made
+  // magnified text blurry: it enlarged a picture of the page instead of
+  // drawing the page bigger.
+  const [zoom, setZoom] = useState(1);
+  const [renderAt, setRenderAt] = useState(1);
+
+  // Re-rasterising on every pinch frame would stutter, so it waits for the
+  // gesture to settle. The stretched canvas covers the gap, then sharpens.
+  useEffect(() => {
+    const id = setTimeout(() => setRenderAt(zoom), 180);
+    return () => clearTimeout(id);
+  }, [zoom]);
 
   useEffect(() => {
     let cancelled = false;
@@ -374,7 +450,9 @@ function PdfPreview({ blob }) {
         if (!host) return;
         host.replaceChildren();
 
-        const width = host.clientWidth || 320;
+        // The pane keeps its width; the wrapper inside it is the one that
+        // grows with zoom, so multiply here rather than measure.
+        const width = (host.clientWidth || 320) * renderAt;
         const pageCount = Math.min(doc.numPages, 25);
 
         for (let n = 1; n <= pageCount; n++) {
@@ -383,7 +461,9 @@ function PdfPreview({ blob }) {
 
           const base = page.getViewport({ scale: 1 });
           // Cap the raster so a long report cannot exhaust memory on a phone.
-          const scale = Math.min((width / base.width) * (window.devicePixelRatio || 1), 3);
+          // 6 is roughly a 2400px-wide page, which stays sharp at 200% zoom on
+          // a high-density screen without allocating tens of megabytes.
+          const scale = Math.min((width / base.width) * (window.devicePixelRatio || 1), 6);
           const viewport = page.getViewport({ scale });
 
           const canvas = document.createElement("canvas");
@@ -411,7 +491,7 @@ function PdfPreview({ blob }) {
       task?.destroy?.();
       worker?.terminate?.();
     };
-  }, [blob]);
+  }, [blob, renderAt]);
 
   if (state === "failed") {
     return <p className="p-8 text-center text-sm text-slate-500">{t("records.cannotPreview")}</p>;
@@ -422,12 +502,12 @@ function PdfPreview({ blob }) {
   // page at the fallback width and look blurry on a wide screen.
   return (
     <div className="relative">
-      {state === "loading" && (
+      {state === "loading" && renderAt === 1 && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-100">
           <Spinner className="h-6 w-6 text-brand-600" />
         </div>
       )}
-      <ZoomFrame>
+      <ZoomFrame zoom={zoom} onZoomChange={setZoom}>
         <div ref={hostRef} className="min-h-[220px] space-y-2 p-2" />
       </ZoomFrame>
     </div>

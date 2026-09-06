@@ -97,6 +97,12 @@ export const api = {
   updateAppointment: (id, payload) =>
     request(`/api/appointments/${id}`, { method: "PATCH", body: payload }),
 
+  // ---- messages ----
+  sendMessage: (payload) => request("/api/messages", { method: "POST", body: payload }),
+  messageThreads: () => request("/api/messages/threads"),
+  messagesWith: (wallet) => request(`/api/messages/with/${wallet}`),
+  deleteMessage: (id) => request(`/api/messages/${id}`, { method: "DELETE" }),
+
   // --- directory ---
   doctors: (q = "", specialization = "") =>
     request(

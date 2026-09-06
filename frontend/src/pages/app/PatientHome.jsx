@@ -11,6 +11,7 @@ import { useApp } from "../../context/AppContext";
 import { useT } from "../../i18n";
 import { api } from "../../lib/api";
 import { Spinner } from "../../components/ui";
+import DashboardHero from "../../components/DashboardHero";
 
 function Card({ to, icon, tone, label, sub, value, urgent }) {
   const tones = {
@@ -22,7 +23,7 @@ function Card({ to, icon, tone, label, sub, value, urgent }) {
   return (
     <Link
       to={to}
-      className={`flex items-center gap-4 rounded-2xl border bg-white p-4 transition active:scale-[0.99] ${
+      className={`glass flex items-center gap-4 border p-4 transition active:scale-[0.99] ${
         urgent ? "border-amber-300 shadow-sm" : "border-slate-200"
       }`}
     >
@@ -93,12 +94,16 @@ export default function PatientHome({ onCounts }) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">
-          {t("dashboard.greeting", { name: firstName })}
-        </h1>
-        <p className="text-slate-500">{t("app.tagline")}</p>
-      </div>
+      <DashboardHero
+        name={t("dashboard.greeting", { name: firstName })}
+        wallet={address}
+        subtitle={t("app.tagline")}
+        stats={[
+          { label: t("dashboard.myRecords"), value: records.length },
+          { label: t("dashboard.pendingRequests"), value: pending },
+          { label: t("dashboard.doctorsWithAccess"), value: doctors },
+        ]}
+      />
 
       {pending > 0 && (
         <Link
@@ -120,6 +125,8 @@ export default function PatientHome({ onCounts }) {
               label={t("dashboard.myRecords")} sub={t("dashboard.myRecordsSub")} />
         <Card to="/app/requests" icon="🔔" tone="amber" value={pending} urgent={pending > 0}
               label={t("dashboard.pendingRequests")} sub={t("dashboard.pendingRequestsSub")} />
+        <Card to="/app/messages" icon="💬" tone="violet" value=""
+              label={t("chat.title")} sub={t("dashboard.messagesSub")} />
         <Card to="/app/find-doctors" icon="🔍" tone="brand" value=""
               label={t("doctor.findTitle")} sub={t("dashboard.findDoctorsSub")} />
         <Card to="/app/appointments" icon="📅" tone="emerald" value=""

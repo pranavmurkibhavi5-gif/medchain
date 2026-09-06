@@ -73,7 +73,7 @@ export default function MobileLayout({ pendingCount = 0 }) {
   const tabs = user?.role === "doctor" ? DOCTOR_TABS : PATIENT_TABS;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-slate-50 sm:flex-row">
+    <div className="app-aurora flex min-h-[100dvh] flex-col sm:flex-row">
       {/* Wide-screen rail */}
       <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white sm:flex sm:flex-col">
         <button

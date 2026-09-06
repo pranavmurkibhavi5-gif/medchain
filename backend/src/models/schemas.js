@@ -165,8 +165,37 @@ const AppointmentSchema = new mongoose.Schema(
   { timestamps: false }
 );
 
+// A message between a patient and a doctor.
+//
+// The body is ciphertext sealed to the two participants, so the server holds
+// something it cannot read. `expiresAt` is set when the recipient first opens
+// the message and MongoDB removes the row on its own from that point - the
+// index below is what actually deletes it, not application code that might
+// never run.
+const MessageSchema = new mongoose.Schema(
+  {
+    thread: { type: String, required: true, index: true },
+    from: { type: String, required: true, lowercase: true, index: true },
+    to: { type: String, required: true, lowercase: true, index: true },
+    fromName: { type: String, default: "" },
+    envelope: { type: Object, required: true },
+    keys: { type: [WrappedKeySchema], default: [] },
+    sentAt: { type: Date, default: Date.now },
+    readAt: { type: Date, default: null },
+    // Null until read, so an unread message is never removed.
+    expiresAt: { type: Date, default: null },
+  },
+  { timestamps: false }
+);
+
+// TTL index: Mongo deletes a document once expiresAt passes. Documents with a
+// null expiresAt are ignored by the TTL monitor, which is exactly what an
+// unread message needs.
+MessageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 module.exports = {
   User: mongoose.model("User", UserSchema),
+  Message: mongoose.model("Message", MessageSchema),
   Appointment: mongoose.model("Appointment", AppointmentSchema),
   HealthProfile: mongoose.model("HealthProfile", HealthProfileSchema),
   RecordMeta: mongoose.model("RecordMeta", RecordMetaSchema),

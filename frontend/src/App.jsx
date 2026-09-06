@@ -20,6 +20,8 @@ import Appointments from "./pages/app/Appointments";
 import Info from "./pages/app/Info";
 import FindDoctors from "./pages/app/FindDoctors";
 import DoctorProfile from "./pages/app/DoctorProfile";
+import Messages from "./pages/app/Messages";
+import Chat from "./pages/app/Chat";
 import Requests from "./pages/app/Requests";
 import Doctors from "./pages/app/Doctors";
 import FindPatient from "./pages/app/FindPatient";
@@ -91,6 +93,8 @@ export default function App() {
         <Route path="patient/:address" element={<PatientRecords />} />
         <Route path="find-doctors" element={<FindDoctors />} />
         <Route path="doctor/:address" element={<DoctorProfile />} />
+        <Route path="messages" element={<Messages />} />
+        <Route path="messages/:address" element={<Chat />} />
         <Route path="appointments" element={<Appointments />} />
         <Route path="help" element={<Info page="help" />} />
         <Route path="about" element={<Info page="about" />} />

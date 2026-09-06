@@ -26,6 +26,7 @@ const auditRoutes = require("./routes/audit");
 const walletRoutes = require("./routes/wallet");
 const healthProfileRoutes = require("./routes/health-profile");
 const appointmentRoutes = require("./routes/appointments");
+const messageRoutes = require("./routes/messages");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -98,6 +99,7 @@ app.use("/api/audit", auditRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/health-profile", healthProfileRoutes);
 app.use("/api/appointments", appointmentRoutes);
+app.use("/api/messages", messageRoutes);
 
 app.use((req, res) => res.status(404).json({ error: `No route for ${req.method} ${req.path}` }));
 

@@ -7,6 +7,7 @@ import { useApp } from "../../context/AppContext";
 import { useT } from "../../i18n";
 import { api } from "../../lib/api";
 import { Spinner, formatDate } from "../../components/ui";
+import DashboardHero from "../../components/DashboardHero";
 
 export default function DoctorHome() {
   const { user, address, contract, unlocked } = useApp();
@@ -58,34 +59,39 @@ export default function DoctorHome() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">
-          {t("dashboard.greeting", { name: (user?.name || "").split(" ")[0] })}
-        </h1>
-        <p className="text-slate-500">
-          {user?.specialization || t("doctor.dashboard")}
-          {user?.hospital ? ` · ${user.hospital}` : ""}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-3xl font-extrabold text-slate-900">{approved.length}</p>
-          <p className="mt-1 text-sm text-slate-500">{t("doctor.patientsWithAccess")}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-3xl font-extrabold text-slate-900">{pending}</p>
-          <p className="mt-1 text-sm text-slate-500">{t("doctor.waitingApproval")}</p>
-        </div>
-      </div>
+      <DashboardHero
+        name={t("dashboard.greeting", { name: (user?.name || "").split(" ")[0] })}
+        wallet={address}
+        subtitle={`${user?.specialization || t("doctor.dashboard")}${
+          user?.hospital ? ` · ${user.hospital}` : ""
+        }`}
+        stats={[
+          { label: t("doctor.patientsWithAccess"), value: approved.length },
+          { label: t("doctor.waitingApproval"), value: pending },
+        ]}
+      />
 
       <Link to="/app/find" className="btn-primary flex w-full items-center justify-center gap-2 py-4 text-base">
         🔍 {t("doctor.findPatient")}
       </Link>
 
       <Link
+        to="/app/messages"
+        className="glass flex items-center gap-4 border p-4 transition active:scale-[0.99]"
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-2xl">
+          💬
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-slate-900">{t("chat.title")}</span>
+          <span className="block truncate text-sm text-slate-500">{t("chat.listHint")}</span>
+        </span>
+        <span className="text-slate-400">›</span>
+      </Link>
+
+      <Link
         to="/app/appointments"
-        className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition active:scale-[0.99]"
+        className="glass flex items-center gap-4 border p-4 transition active:scale-[0.99]"
       >
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-2xl">
           📅
@@ -99,7 +105,7 @@ export default function DoctorHome() {
         <span className="text-slate-400">›</span>
       </Link>
 
-      <section className="rounded-2xl border border-slate-200 bg-white">
+      <section className="glass border">
         <div className="border-b border-slate-100 px-4 py-3">
           <h2 className="font-semibold text-slate-900">{t("doctor.approvedRecords")}</h2>
         </div>

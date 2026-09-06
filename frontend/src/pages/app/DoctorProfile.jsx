@@ -211,6 +211,13 @@ export default function DoctorProfile() {
         )}
 
         <button
+          onClick={() => navigate(`/app/messages/${doctor.walletAddress}`)}
+          className="btn-ghost w-full border border-slate-200 py-4 text-base"
+        >
+          💬 {t("doctor.chat")}
+        </button>
+
+        <button
           onClick={() => navigate("/app/appointments")}
           className="btn-ghost w-full border border-slate-200 py-4 text-base"
         >
