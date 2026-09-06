@@ -15,6 +15,9 @@ import HealthDetails from "../../components/HealthDetails";
 import MyQrCode from "../../components/MyQrCode";
 import ChangePassword from "../../components/ChangePassword";
 import Accessibility from "../../components/Accessibility";
+import ProfilePhoto from "../../components/ProfilePhoto";
+import DoctorDetails from "../../components/DoctorDetails";
+import Avatar from "../../components/Avatar";
 import { CONTRACT_ADDRESS, NETWORK_NAME, EXPLORER, shortAddress } from "../../lib/web3";
 
 export default function Profile() {
@@ -41,9 +44,7 @@ export default function Profile() {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-2xl">
-            {user?.role === "doctor" ? "👩‍⚕️" : "🧑"}
-          </span>
+          <Avatar wallet={address} name={user?.name} size="lg" />
           <div className="min-w-0">
             <p className="truncate text-lg font-bold text-slate-900">{user?.name}</p>
             <p className="truncate text-sm text-slate-500">{user?.email}</p>
@@ -55,6 +56,10 @@ export default function Profile() {
       </section>
 
       {/* Health details - patients only, encrypted before it leaves the device */}
+      <ProfilePhoto />
+
+      {user?.role === "doctor" && <DoctorDetails />}
+
       {user?.role === "patient" && <HealthDetails />}
       {user?.role === "patient" && <MyQrCode />}
 

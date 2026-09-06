@@ -38,6 +38,26 @@ const UserSchema = new mongoose.Schema(
     hospital: { type: String, default: "" },
     verified: { type: Boolean, default: false },
 
+    // Professional details a patient sees before choosing a doctor. All
+    // self-declared and non-clinical, so they are stored in the clear - they
+    // are meant to be read by strangers, which is the point of a directory.
+    qualification: { type: String, default: "" },
+    experienceYears: { type: Number, default: 0 },
+    location: { type: String, default: "" },
+    availability: { type: String, default: "" },
+    about: { type: String, default: "" },
+    expertise: { type: [String], default: [] },
+
+    // Profile photo, kept small and stored here rather than on IPFS.
+    // An avatar has to be readable by other users, so it cannot be encrypted
+    // like a record; and IPFS content is effectively permanent, which would
+    // make "remove photo" a lie. Storing it here means removing it removes it.
+    avatar: {
+      data: { type: String, default: "" }, // base64, already resized in the browser
+      type: { type: String, default: "" },
+      updatedAt: { type: Date, default: null },
+    },
+
     active: { type: Boolean, default: true },
   },
   { timestamps: true }

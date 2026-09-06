@@ -98,9 +98,19 @@ export const api = {
     request(`/api/appointments/${id}`, { method: "PATCH", body: payload }),
 
   // --- directory ---
-  doctors: (q = "") => request(`/api/users/doctors?q=${encodeURIComponent(q)}`),
+  doctors: (q = "", specialization = "") =>
+    request(
+      `/api/users/doctors?q=${encodeURIComponent(q)}` +
+        `&specialization=${encodeURIComponent(specialization)}`
+    ),
   patients: (q = "") => request(`/api/users/patients?q=${encodeURIComponent(q)}`),
   userByWallet: (addr) => request(`/api/users/by-wallet/${addr}`),
+  specializations: () => request("/api/users/specializations"),
+
+  // --- profile photo ---
+  putAvatar: (payload) => request("/api/users/avatar", { method: "PUT", body: payload }),
+  deleteAvatar: () => request("/api/users/avatar", { method: "DELETE" }),
+  avatarBytes: (wallet) => request(`/api/users/avatar/${wallet}`, { raw: true }),
 
   // --- records ---
   uploadEncrypted: (envelope, fileName) => {

@@ -9,6 +9,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { useT } from "../i18n";
 import { Toast } from "./ui";
+import Avatar from "./Avatar";
 
 function IconHome(p) {
   return (
@@ -117,11 +118,16 @@ export default function MobileLayout({ pendingCount = 0 }) {
             </span>
             <span className="text-sm font-bold text-slate-900">{t("app.name")}</span>
           </div>
-          {!unlocked && (
-            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-              &#128274;
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {!unlocked && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                &#128274;
+              </span>
+            )}
+            <NavLink to="/app/profile" aria-label={t("nav.profile")}>
+              <Avatar wallet={user?.walletAddress} name={user?.name} size="sm" />
+            </NavLink>
+          </div>
         </header>
 
         <main className="min-w-0 flex-1 px-4 pb-24 pt-4 sm:px-8 sm:pb-8 sm:pt-6">

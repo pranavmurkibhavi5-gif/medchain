@@ -13,8 +13,14 @@ function publicUser(u) {
   if (!u) return null;
   // The vault is ciphertext, but it is only ever needed by /api/wallet/vault,
   // so it is kept out of general responses.
-  const { passwordHash, vault, ...rest } = u;
-  return { ...rest, hasVault: Boolean(vault) };
+  // The avatar is base64 and would bloat every /me response, so only its
+  // presence is reported; the image itself is fetched from its own endpoint.
+  const { passwordHash, vault, avatar, ...rest } = u;
+  return {
+    ...rest,
+    hasVault: Boolean(vault),
+    hasAvatar: Boolean(avatar && avatar.data),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +185,12 @@ router.post("/link-wallet", requireAuth, async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.patch("/profile", requireAuth, async (req, res, next) => {
   try {
-    const allowed = ["name", "dateOfBirth", "bloodGroup", "phone", "specialization", "hospital"];
+    const allowed = [
+      "name", "dateOfBirth", "bloodGroup", "phone",
+      // Doctor directory details, self-declared.
+      "specialization", "hospital", "qualification", "experienceYears",
+      "location", "availability", "about", "expertise",
+    ];
     const patch = {};
     for (const key of allowed) {
       if (req.body && req.body[key] !== undefined) patch[key] = req.body[key];
