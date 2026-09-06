@@ -29,7 +29,8 @@
     "test:directory": "node docs/directory-test.mjs",
     "test:chat": "node docs/chat-test.mjs",
     "test:recovery": "node docs/recovery-test.mjs",
-    "test:logic": "node docs/password-test.mjs && node docs/directory-test.mjs && node docs/profile-test.mjs && node docs/appointment-test.mjs && node docs/chat-test.mjs && node docs/recovery-test.mjs"
+    "test:logic": "node docs/password-test.mjs && node docs/directory-test.mjs && node docs/profile-test.mjs && node docs/appointment-test.mjs && node docs/chat-test.mjs && node docs/recovery-test.mjs && node docs/payment-test.mjs",
+    "test:payment": "node docs/payment-test.mjs"
   },
   "devDependencies": {
     "@noble/hashes": "^1.6.1",

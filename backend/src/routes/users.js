@@ -23,6 +23,11 @@ function directoryEntry(u) {
     availability: u.availability || "",
     about: u.about || "",
     expertise: u.expertise || [],
+    consultationFee: Number(u.consultationFee || 0),
+    // The doctor's own payment address, which they chose to publish so
+    // patients can pay them directly.
+    upiId: u.upiId || "",
+    hasPaymentQr: Boolean(u.paymentQr && u.paymentQr.data),
     // A flag, not the image: sending every avatar inline would make the
     // directory response enormous. The picture is fetched per user.
     hasAvatar: Boolean(u.avatar && u.avatar.data),
@@ -166,6 +171,61 @@ router.get("/avatar/:wallet", requireAuth, async (req, res, next) => {
     // Private: it belongs to a signed-in user, so no shared caches.
     res.set("Cache-Control", "private, max-age=300");
     res.send(buf);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Payment QR
+//
+// A doctor may upload the QR code their own bank issued rather than typing a
+// UPI ID. Stored and served exactly like an avatar - it is meant to be shown
+// to patients booking with them, and removing it must actually remove it.
+// ---------------------------------------------------------------------------
+router.put("/payment-qr", requireAuth, requireRole("doctor"), async (req, res, next) => {
+  try {
+    const { data, type } = req.body || {};
+    if (!data || typeof data !== "string") {
+      return res.status(400).json({ error: "An image is required" });
+    }
+    if (!ALLOWED_AVATAR_TYPES.includes(String(type))) {
+      return res.status(415).json({ error: "Use a JPEG, PNG or WebP image" });
+    }
+    const bytes = Math.floor((data.length * 3) / 4);
+    if (bytes > MAX_AVATAR_BYTES) {
+      return res.status(413).json({ error: "That image is too large" });
+    }
+
+    await store.users.update(req.user.id, {
+      paymentQr: { data, type, updatedAt: new Date().toISOString() },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/payment-qr", requireAuth, requireRole("doctor"), async (req, res, next) => {
+  try {
+    await store.users.update(req.user.id, {
+      paymentQr: { data: "", type: "", updatedAt: null },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/payment-qr/:wallet", requireAuth, async (req, res, next) => {
+  try {
+    const user = await store.users.findByWallet(req.params.wallet);
+    if (!user || !user.paymentQr || !user.paymentQr.data) {
+      return res.status(404).json({ error: "No payment QR" });
+    }
+    res.set("Content-Type", user.paymentQr.type || "image/png");
+    res.set("Cache-Control", "private, max-age=300");
+    res.send(Buffer.from(user.paymentQr.data, "base64"));
   } catch (err) {
     next(err);
   }

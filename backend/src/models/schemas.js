@@ -55,12 +55,27 @@ const UserSchema = new mongoose.Schema(
     about: { type: String, default: "" },
     expertise: { type: [String], default: [] },
 
+    // Consultation fee and the doctor's own UPI address, both self-declared.
+    // Shown to a patient booking with them so they can pay directly; no
+    // payment address is hardcoded anywhere in this project.
+    consultationFee: { type: Number, default: 0 },
+    upiId: { type: String, default: "" },
+
     // Profile photo, kept small and stored here rather than on IPFS.
     // An avatar has to be readable by other users, so it cannot be encrypted
     // like a record; and IPFS content is effectively permanent, which would
     // make "remove photo" a lie. Storing it here means removing it removes it.
     avatar: {
       data: { type: String, default: "" }, // base64, already resized in the browser
+      type: { type: String, default: "" },
+      updatedAt: { type: Date, default: null },
+    },
+
+    // A doctor may upload the QR their own bank issued, instead of typing a
+    // UPI ID and letting the app draw one. Same storage reasoning as the
+    // avatar: it is meant to be shown to patients, and it must be removable.
+    paymentQr: {
+      data: { type: String, default: "" },
       type: { type: String, default: "" },
       updatedAt: { type: Date, default: null },
     },
@@ -166,6 +181,25 @@ const AppointmentSchema = new mongoose.Schema(
     reasonEnvelope: { type: Object, default: null },
     reasonKeys: { type: [WrappedKeySchema], default: [] },
     reply: { type: String, default: "" },
+
+    // Payment is recorded honestly rather than optimistically.
+    //
+    // A static UPI address has no callback, so the server cannot know that
+    // money arrived. "claimed" means the patient says they paid; "confirmed"
+    // means the doctor checked their own UPI app and said so. Only the doctor
+    // can move it to confirmed, because only the doctor can actually see the
+    // money. The app never marks a payment successful on its own.
+    payment: {
+      amount: { type: Number, default: 0 },
+      status: {
+        type: String,
+        enum: ["none", "claimed", "confirmed", "waived"],
+        default: "none",
+      },
+      claimedAt: { type: Date, default: null },
+      confirmedAt: { type: Date, default: null },
+    },
+
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
   },

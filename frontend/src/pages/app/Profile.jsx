@@ -18,6 +18,7 @@ import RecoveryKey from "../../components/RecoveryKey";
 import Accessibility from "../../components/Accessibility";
 import ProfilePhoto from "../../components/ProfilePhoto";
 import DoctorDetails from "../../components/DoctorDetails";
+import PaymentSetup from "../../components/PaymentSetup";
 import Avatar from "../../components/Avatar";
 import { CONTRACT_ADDRESS, NETWORK_NAME, EXPLORER, shortAddress } from "../../lib/web3";
 
@@ -60,6 +61,8 @@ export default function Profile() {
       <ProfilePhoto />
 
       {user?.role === "doctor" && <DoctorDetails />}
+
+      {user?.role === "doctor" && <PaymentSetup />}
 
       {user?.role === "patient" && <HealthDetails />}
       {user?.role === "patient" && <MyQrCode />}

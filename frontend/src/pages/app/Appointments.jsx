@@ -17,6 +17,8 @@ import { api } from "../../lib/api";
 import { Spinner, Modal, formatDate } from "../../components/ui";
 import { OPEN_STATUSES, STATUS_TONE, nextHour, toLocalInput } from "../../lib/appointments";
 import { bookAppointment, listAppointments, setStatus } from "../../lib/appointments-store";
+import { PAYMENT_STATUS, formatFee, paymentSummary } from "../../lib/payments";
+import PayDoctor from "../../components/PayDoctor";
 
 export default function Appointments() {
   const { user, address, keyPair, notify } = useApp();
@@ -34,10 +36,12 @@ export default function Appointments() {
   const [when, setWhen] = useState(toLocalInput(nextHour()));
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  // Set right after booking so the fee can be paid without hunting for it.
+  const [justBooked, setJustBooked] = useState(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (quiet = false) => {
     if (!keyPair) return;
-    setLoading(true);
+    if (!quiet) setLoading(true);
     try {
       setItems(await listAppointments(keyPair));
     } catch (err) {
@@ -68,7 +72,7 @@ export default function Appointments() {
 
     setSaving(true);
     try {
-      await bookAppointment({
+      const appointment = await bookAppointment({
         doctor: { address: doc.walletAddress, publicKey: doc.encryptionPublicKey },
         whenLocal: when,
         reason,
@@ -79,11 +83,30 @@ export default function Appointments() {
       setReason("");
       setPickedDoctor("");
       notify(t("appointments.booked"), "success");
+
+      // A fee is due: show the doctor's QR now rather than making the patient
+      // find it later.
+      if (Number(appointment?.payment?.amount) > 0) {
+        setJustBooked({ appointment, doctor: doc });
+      }
       await load();
     } catch (err) {
       notify(err.message, "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const payment = async (appt, status) => {
+    setBusyId(appt.id);
+    try {
+      await api.setAppointmentPayment(appt.id, { status });
+      notify(t(`payment.now_${status}`), "success");
+      await load(true);
+    } catch (err) {
+      notify(err.message, "error");
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -145,6 +168,7 @@ export default function Appointments() {
             isDoctor={isDoctor}
             busyId={busyId}
             onChange={change}
+            onPayment={payment}
             t={t}
           />
           <Group
@@ -153,11 +177,35 @@ export default function Appointments() {
             isDoctor={isDoctor}
             busyId={busyId}
             onChange={change}
+            onPayment={payment}
             t={t}
             muted
           />
         </>
       )}
+
+      {/* Pay the fee, immediately after booking */}
+      <Modal
+        open={Boolean(justBooked)}
+        onClose={() => setJustBooked(null)}
+        title={t("payment.title")}
+        footer={
+          <button onClick={() => setJustBooked(null)} className="btn-primary">
+            {t("common.done")}
+          </button>
+        }
+      >
+        {justBooked && (
+          <PayDoctor
+            appointment={justBooked.appointment}
+            doctor={justBooked.doctor}
+            onPaid={() => {
+              setJustBooked(null);
+              load(true);
+            }}
+          />
+        )}
+      </Modal>
 
       {/* Booking */}
       <Modal
@@ -229,6 +277,18 @@ export default function Appointments() {
             />
           </label>
 
+          {(() => {
+            const doc = doctors.find((d) => d.walletAddress === pickedDoctor);
+            const amount = Number(doc?.consultationFee || 0);
+            if (!amount) return null;
+            return (
+              <p className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                <span className="text-slate-600">{t("payment.fee")}</span>
+                <span className="font-bold text-slate-900">{formatFee(amount)}</span>
+              </p>
+            );
+          })()}
+
           <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
             🔒 {t("appointments.reasonEncrypted")}
           </p>
@@ -241,7 +301,7 @@ export default function Appointments() {
   );
 }
 
-function Group({ title, list, isDoctor, busyId, onChange, t, muted = false }) {
+function Group({ title, list, isDoctor, busyId, onChange, onPayment, t, muted = false }) {
   if (list.length === 0) return null;
 
   return (
@@ -282,6 +342,19 @@ function Group({ title, list, isDoctor, busyId, onChange, t, muted = false }) {
                     {a.reply}
                   </p>
                 )}
+
+                {Number(a.payment?.amount) > 0 && (
+                  <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                        (PAYMENT_STATUS[a.payment.status] || PAYMENT_STATUS.none).tone
+                      }`}
+                    >
+                      {t((PAYMENT_STATUS[a.payment.status] || PAYMENT_STATUS.none).label)}
+                    </span>
+                    <span className="text-slate-500">{paymentSummary(a, t)}</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -314,6 +387,25 @@ function Group({ title, list, isDoctor, busyId, onChange, t, muted = false }) {
                     {t("appointments.markDone")}
                   </button>
                 )}
+                {isDoctor && Number(a.payment?.amount) > 0 && a.payment?.status !== "confirmed" && (
+                  <>
+                    <button
+                      onClick={() => onPayment(a, "confirmed")}
+                      disabled={busyId === a.id}
+                      className="btn-success btn-sm"
+                    >
+                      {t("payment.markReceived")}
+                    </button>
+                    <button
+                      onClick={() => onPayment(a, "waived")}
+                      disabled={busyId === a.id}
+                      className="btn-ghost btn-sm"
+                    >
+                      {t("payment.waive")}
+                    </button>
+                  </>
+                )}
+
                 {!isDoctor && (
                   <button
                     onClick={() => onChange(a, "cancelled")}

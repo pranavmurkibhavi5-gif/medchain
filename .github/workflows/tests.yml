@@ -51,6 +51,9 @@ jobs:
       - name: Account recovery
         run: node docs/recovery-test.mjs
 
+      - name: Consultation fees
+        run: node docs/payment-test.mjs
+
   frontend:
     name: Frontend build
     runs-on: ubuntu-latest

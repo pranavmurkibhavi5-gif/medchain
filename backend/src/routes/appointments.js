@@ -94,6 +94,14 @@ router.post("/", requireAuth, requireRole("patient"), requireWallet, async (req,
             .filter((k) => k && k.forAddress && k.envelope)
             .map((k) => ({ forAddress: lc(k.forAddress), envelope: k.envelope }))
         : [],
+      // Taken from the doctor's profile, never from the request body: a
+      // client must not be able to decide what it owes.
+      payment: {
+        amount: Number(doctor.consultationFee || 0),
+        status: "none",
+        claimedAt: null,
+        confirmedAt: null,
+      },
     });
 
     await store.logs.add({
@@ -175,6 +183,61 @@ router.patch("/:id", requireAuth, requireWallet, async (req, res, next) => {
       actorRole: req.user.role,
       target: isDoctor ? lc(appt.patient) : lc(appt.doctor),
       detail: `Appointment on ${new Date(appt.scheduledFor).toISOString()} ${status}`,
+      ip: req.ip,
+    });
+
+    res.json({ appointment: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/appointments/:id/payment
+ *
+ * A patient may say they have paid. A doctor may confirm it, or waive the fee.
+ *
+ * The separation matters: the server has no way to see a UPI transfer, so it
+ * never marks a payment successful by itself. A patient's word is recorded as
+ * a claim, and only the doctor - who can actually look at their own UPI app -
+ * can turn that into a confirmation.
+ */
+router.patch("/:id/payment", requireAuth, requireWallet, async (req, res, next) => {
+  try {
+    const { status } = req.body || {};
+    const appt = await store.appointments.findById(req.params.id);
+    if (!appt) return res.status(404).json({ error: "Appointment not found" });
+
+    const me = lc(req.user.walletAddress);
+    if (!isParty(appt, me)) return res.status(403).json({ error: "Not your appointment" });
+
+    const isDoctor = lc(appt.doctor) === me;
+    const allowed = isDoctor ? ["confirmed", "waived", "none"] : ["claimed"];
+
+    if (!allowed.includes(status)) {
+      return res.status(400).json({
+        error: isDoctor
+          ? "A doctor can confirm, waive or reset a payment"
+          : "A patient can only say they have paid; the doctor confirms it",
+      });
+    }
+
+    const payment = { ...(appt.payment || {}), status };
+    if (status === "claimed") payment.claimedAt = new Date().toISOString();
+    if (status === "confirmed") payment.confirmedAt = new Date().toISOString();
+    if (status === "none") {
+      payment.claimedAt = null;
+      payment.confirmedAt = null;
+    }
+
+    const updated = await store.appointments.update(appt.id, { payment });
+
+    await store.logs.add({
+      action: `PAYMENT_${status.toUpperCase()}`,
+      actor: me,
+      actorRole: req.user.role,
+      target: isDoctor ? lc(appt.patient) : lc(appt.doctor),
+      detail: `Consultation fee marked ${status}`,
       ip: req.ip,
     });
 

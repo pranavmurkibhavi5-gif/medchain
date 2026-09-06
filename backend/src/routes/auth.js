@@ -18,12 +18,13 @@ function publicUser(u) {
   // so it is kept out of general responses.
   // The avatar is base64 and would bloat every /me response, so only its
   // presence is reported; the image itself is fetched from its own endpoint.
-  const { passwordHash, vault, avatar, recoveryVault, ...rest } = u;
+  const { passwordHash, vault, avatar, recoveryVault, paymentQr, ...rest } = u;
   return {
     ...rest,
     hasVault: Boolean(vault),
     hasAvatar: Boolean(avatar && avatar.data),
     hasRecovery: Boolean(recoveryVault),
+    hasPaymentQr: Boolean(paymentQr && paymentQr.data),
   };
 }
 
@@ -194,6 +195,7 @@ router.patch("/profile", requireAuth, async (req, res, next) => {
       // Doctor directory details, self-declared.
       "specialization", "hospital", "qualification", "experienceYears",
       "location", "availability", "about", "expertise",
+      "consultationFee", "upiId",
     ];
     const patch = {};
     for (const key of allowed) {

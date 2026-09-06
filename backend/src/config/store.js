@@ -86,7 +86,10 @@ const users = {
       availability: data.availability || "",
       about: data.about || "",
       expertise: data.expertise || [],
+      consultationFee: Number(data.consultationFee || 0),
+      upiId: data.upiId || "",
       avatar: data.avatar || { data: "", type: "", updatedAt: null },
+      paymentQr: data.paymentQr || { data: "", type: "", updatedAt: null },
       recoveryVault: data.recoveryVault || null,
       recoverySalt: data.recoverySalt || "",
       recoverySetAt: data.recoverySetAt || null,
@@ -365,6 +368,12 @@ const appointments = {
       reasonEnvelope: data.reasonEnvelope || null,
       reasonKeys: data.reasonKeys || [],
       reply: "",
+      payment: data.payment || {
+        amount: Number(data.paymentAmount || 0),
+        status: "none",
+        claimedAt: null,
+        confirmedAt: null,
+      },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

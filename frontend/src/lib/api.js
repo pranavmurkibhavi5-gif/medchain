@@ -103,6 +103,8 @@ export const api = {
   myAppointments: () => request("/api/appointments/mine"),
   updateAppointment: (id, payload) =>
     request(`/api/appointments/${id}`, { method: "PATCH", body: payload }),
+  setAppointmentPayment: (id, payload) =>
+    request(`/api/appointments/${id}/payment`, { method: "PATCH", body: payload }),
 
   // ---- messages ----
   sendMessage: (payload) => request("/api/messages", { method: "POST", body: payload }),
@@ -124,6 +126,11 @@ export const api = {
   putAvatar: (payload) => request("/api/users/avatar", { method: "PUT", body: payload }),
   deleteAvatar: () => request("/api/users/avatar", { method: "DELETE" }),
   avatarBytes: (wallet) => request(`/api/users/avatar/${wallet}`, { raw: true }),
+
+  // --- doctor payment details ---
+  putPaymentQr: (payload) => request("/api/users/payment-qr", { method: "PUT", body: payload }),
+  deletePaymentQr: () => request("/api/users/payment-qr", { method: "DELETE" }),
+  paymentQrBytes: (wallet) => request(`/api/users/payment-qr/${wallet}`, { raw: true }),
 
   // --- records ---
   uploadEncrypted: (envelope, fileName) => {
