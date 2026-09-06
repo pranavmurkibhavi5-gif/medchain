@@ -137,6 +137,41 @@ SPONSOR_MIN_BALANCE_ETH=0.002
 SPONSOR_MAX_TOTAL_ETH=0.05
 ```
 
+### Email verification (optional)
+
+Changing a password can require a code emailed to the account address. It is
+an extra check, never a replacement: the current password is still required,
+so a compromised mailbox alone cannot take over an account.
+
+Leave `SMTP_HOST` empty and the feature switches itself off cleanly - password
+changes keep working, with the current password as the only check, and the
+screen says so rather than showing a code box that could never be satisfied.
+
+To enable it with a Gmail account:
+
+1. Turn on 2-Step Verification on that Google account.
+2. Create an **App Password** (Google Account -> Security -> App passwords).
+   This is a 16-character password specific to this application; your normal
+   Google password will not work and should never be pasted here.
+3. In Render -> Environment, set:
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASS=<the 16-character App Password>
+MAIL_FROM=MedChain <you@gmail.com>
+```
+
+`SMTP_PASS` is a secret and belongs only in Render's environment editor, never
+in the repository. Confirm it took effect at `/api/health`, where `mail.configured`
+should read `true`.
+
+**SMS is deliberately not implemented.** Sending transactional SMS in India
+requires a paid gateway and DLT registration with a telecom operator, neither
+of which an academic project can obtain. A button that cannot work is worse
+than no button.
+
 ### Where `SPONSOR_PRIVATE_KEY` goes
 
 Patients sign their own transactions, so each account needs a little Sepolia

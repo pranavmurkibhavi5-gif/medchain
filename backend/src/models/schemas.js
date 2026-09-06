@@ -34,6 +34,16 @@ const UserSchema = new mongoose.Schema(
     recoverySalt: { type: String, default: "" },
     recoverySetAt: { type: Date, default: null },
 
+    // A pending email verification code. Only its bcrypt hash is stored, so
+    // a database dump does not hand over live codes, and the attempt counter
+    // stops it being brute-forced within its short life.
+    verifyCode: {
+      hash: { type: String, default: "" },
+      purpose: { type: String, default: "" },
+      expiresAt: { type: Date, default: null },
+      attempts: { type: Number, default: 0 },
+    },
+
     // Patient fields
     dateOfBirth: { type: String, default: "" },
     bloodGroup: { type: String, default: "" },

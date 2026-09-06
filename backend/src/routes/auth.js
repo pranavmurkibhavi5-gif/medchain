@@ -5,6 +5,7 @@ const nodeCrypto = require("node:crypto");
 const { ethers } = require("ethers");
 const config = require("../config");
 const store = require("../config/store");
+const mailer = require("../services/mailer");
 const { sign, requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
@@ -18,7 +19,7 @@ function publicUser(u) {
   // so it is kept out of general responses.
   // The avatar is base64 and would bloat every /me response, so only its
   // presence is reported; the image itself is fetched from its own endpoint.
-  const { passwordHash, vault, avatar, recoveryVault, paymentQr, ...rest } = u;
+  const { passwordHash, vault, avatar, recoveryVault, paymentQr, verifyCode, ...rest } = u;
   return {
     ...rest,
     hasVault: Boolean(vault),
@@ -223,6 +224,105 @@ router.patch("/profile", requireAuth, async (req, res, next) => {
 // ---------------------------------------------------------------------------
 const MIN_PASSWORD = 8;
 
+// A six-digit code, good for ten minutes, five attempts.
+const CODE_TTL_MINUTES = 10;
+const CODE_MAX_ATTEMPTS = 5;
+const mask = (email = "") => {
+  const [name, domain] = String(email).split("@");
+  if (!domain) return "";
+  const head = name.slice(0, 2);
+  return `${head}${"*".repeat(Math.max(1, name.length - 2))}@${domain}`;
+};
+
+/**
+ * POST /api/auth/change-password/request-code
+ *
+ * Emails a one-time code to the address on the account. The code is stored as
+ * a bcrypt hash, so a database dump does not hand over live codes, and it is
+ * never written to a log.
+ *
+ * The address is not taken from the request: it is read from the session, so
+ * this cannot be used to send codes to somewhere the attacker controls.
+ */
+router.post("/change-password/request-code", requireAuth, async (req, res, next) => {
+  try {
+    if (!mailer.isConfigured()) {
+      return res.status(503).json({ error: "Email verification is not available", available: false });
+    }
+
+    const user = await store.users.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: "Account not found" });
+
+    const code = String(nodeCrypto.randomInt(100000, 1000000));
+    const expiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000);
+
+    await store.users.update(user.id, {
+      verifyCode: {
+        hash: await bcrypt.hash(code, 8),
+        purpose: "change-password",
+        expiresAt: expiresAt.toISOString(),
+        attempts: 0,
+      },
+    });
+
+    const result = await mailer.verificationCode({
+      to: user.email,
+      name: user.name,
+      code,
+      minutes: CODE_TTL_MINUTES,
+    });
+
+    if (!result.sent) {
+      return res.status(502).json({ error: "The code could not be sent. Try again shortly." });
+    }
+
+    await store.logs.add({
+      action: "VERIFY_CODE_SENT",
+      actor: user.walletAddress || "",
+      actorRole: user.role,
+      detail: "Password change verification code sent",
+      ip: req.ip,
+    });
+
+    // The masked address is returned so the screen can say where it went,
+    // without echoing the full address back over the wire.
+    res.json({ sent: true, sentTo: mask(user.email), expiresInMinutes: CODE_TTL_MINUTES });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Check and consume a pending code. Returns an error string, or "". */
+async function consumeCode(user, code, purpose) {
+  const pending = user.verifyCode || {};
+
+  if (!pending.hash || pending.purpose !== purpose) {
+    return "Request a verification code first";
+  }
+  if (!pending.expiresAt || new Date(pending.expiresAt).getTime() < Date.now()) {
+    await store.users.update(user.id, { verifyCode: { hash: "", purpose: "", expiresAt: null, attempts: 0 } });
+    return "That code has expired. Request a new one.";
+  }
+  if (Number(pending.attempts || 0) >= CODE_MAX_ATTEMPTS) {
+    await store.users.update(user.id, { verifyCode: { hash: "", purpose: "", expiresAt: null, attempts: 0 } });
+    return "Too many attempts. Request a new code.";
+  }
+
+  const ok = await bcrypt.compare(String(code || ""), pending.hash);
+  if (!ok) {
+    // Counting failures is what makes a six-digit code safe: without it,
+    // a million guesses inside ten minutes is entirely feasible.
+    await store.users.update(user.id, {
+      verifyCode: { ...pending, attempts: Number(pending.attempts || 0) + 1 },
+    });
+    return "That code is not correct";
+  }
+
+  // Single use.
+  await store.users.update(user.id, { verifyCode: { hash: "", purpose: "", expiresAt: null, attempts: 0 } });
+  return "";
+}
+
 router.post("/change-password", requireAuth, async (req, res, next) => {
   try {
     const { currentPassword, newPassword, vault, salt } = req.body || {};
@@ -239,6 +339,14 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 
     const user = await store.users.findById(req.user.id);
     if (!user) return res.status(404).json({ error: "Account not found" });
+
+    // A second factor, when the server can actually send one. It is strictly
+    // additional: the current password is still required, so a compromised
+    // mailbox alone cannot take over an account.
+    if (mailer.isConfigured()) {
+      const problem = await consumeCode(user, req.body?.code, "change-password");
+      if (problem) return res.status(401).json({ error: problem });
+    }
 
     const ok = await bcrypt.compare(String(currentPassword), user.passwordHash);
     if (!ok) {

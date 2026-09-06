@@ -27,6 +27,7 @@ const walletRoutes = require("./routes/wallet");
 const healthProfileRoutes = require("./routes/health-profile");
 const appointmentRoutes = require("./routes/appointments");
 const messageRoutes = require("./routes/messages");
+const mailer = require("./services/mailer");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -71,6 +72,7 @@ app.get("/api/health", async (req, res) => {
     ipfs: config.usingPinata ? "pinata" : "local",
     pinata: await ipfs.pinataStatus(),
     sponsor: await sponsor.status(),
+    mail: mailer.status(),
     chain: await chain.health(),
     contractAddress: config.contractAddress || null,
     chainId: config.chainId,

@@ -57,6 +57,28 @@ services:
       - key: PUBLIC_IPFS_GATEWAY
         value: https://ipfs.io
 
+      # ---- Outbound email (optional) ----
+      # Used only to send the verification code when someone changes their
+      # password. Leave SMTP_HOST empty and the feature turns itself off
+      # cleanly - password changes still work, with the current password as
+      # the only check.
+      #
+      # For Gmail: host smtp.gmail.com, port 587, user your address, and an
+      # App Password (not your normal password). App Passwords require
+      # 2-Step Verification to be switched on first.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      # SMTP_PASS is a SECRET. sync:false means Render never reads it from
+      # this file and never stores it in the repository.
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+
       # ---- Bootstrap admin ----
       - key: ADMIN_EMAIL
         sync: false

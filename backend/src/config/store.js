@@ -90,6 +90,7 @@ const users = {
       upiId: data.upiId || "",
       avatar: data.avatar || { data: "", type: "", updatedAt: null },
       paymentQr: data.paymentQr || { data: "", type: "", updatedAt: null },
+      verifyCode: data.verifyCode || { hash: "", purpose: "", expiresAt: null, attempts: 0 },
       recoveryVault: data.recoveryVault || null,
       recoverySalt: data.recoverySalt || "",
       recoverySetAt: data.recoverySetAt || null,

@@ -79,6 +79,8 @@ export const api = {
   updateProfile: (payload) => request("/api/auth/profile", { method: "PATCH", body: payload }),
   changePassword: (payload) =>
     request("/api/auth/change-password", { method: "POST", body: payload }),
+  requestPasswordCode: () =>
+    request("/api/auth/change-password/request-code", { method: "POST" }),
 
   // ---- account recovery ----
   putRecovery: (payload) => request("/api/auth/recovery", { method: "POST", body: payload }),

@@ -33,6 +33,16 @@ const config = {
 
   // Bootstrap admin, created on first boot if it does not exist.
   adminEmail: process.env.ADMIN_EMAIL || "admin@bmr.local",
+
+  // Outbound email, used only for security codes. Leaving SMTP_HOST unset
+  // disables the feature cleanly rather than breaking password changes.
+  smtp: {
+    host: process.env.SMTP_HOST || "",
+    port: Number(process.env.SMTP_PORT || 587),
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+    from: process.env.MAIL_FROM || "",
+  },
   adminPassword: process.env.ADMIN_PASSWORD || "Admin@12345",
 };
 

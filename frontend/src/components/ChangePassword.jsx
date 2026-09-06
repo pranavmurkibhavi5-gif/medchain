@@ -10,7 +10,7 @@
  * Requires the session to be unlocked, because the private key has to be in
  * memory to re-seal it.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useApp } from "../context/AppContext";
 import { useT } from "../i18n";
@@ -32,15 +32,55 @@ export default function ChangePassword() {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
 
+  // Email verification. `mailReady` is null until the server has been asked,
+  // so the code box never flickers into view on an install that cannot send.
+  const [mailReady, setMailReady] = useState(null);
+  const [code, setCode] = useState("");
+  const [sentTo, setSentTo] = useState("");
+  const [sending, setSending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
   const strength = scorePassword(next);
   const meter = STRENGTH[strength.score];
   const problem = passwordProblem(next, confirm, current);
   const matches = confirm.length > 0 && next === confirm;
 
+  // Ask once, when the panel is opened, whether a code can be sent at all.
+  useEffect(() => {
+    if (!open || mailReady !== null) return;
+    api
+      .health()
+      .then((h) => setMailReady(Boolean(h?.mail?.configured)))
+      .catch(() => setMailReady(false));
+  }, [open, mailReady]);
+
+  // Simple resend cooldown, so the button cannot be hammered.
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const id = setTimeout(() => setCooldown((n) => n - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
+
+  const sendCode = async () => {
+    setSending(true);
+    setError("");
+    try {
+      const res = await api.requestPasswordCode();
+      setSentTo(res.sentTo || "");
+      setCooldown(45);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
   const reset = () => {
     setCurrent("");
     setNext("");
     setConfirm("");
+    setCode("");
+    setSentTo("");
     setError("");
     setShow(false);
   };
@@ -58,6 +98,7 @@ export default function ChangePassword() {
     setBusy(true);
     try {
       let payload = { currentPassword: current, newPassword: next };
+      if (mailReady) payload.code = code.trim();
 
       if (user?.hasVault) {
         // Prove the old password locally by opening the vault with it. This
@@ -161,6 +202,51 @@ export default function ChangePassword() {
                 )}
               </div>
 
+              {mailReady && (
+                <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-3">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {t("password.verifyTitle")}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    {sentTo
+                      ? t("password.codeSentTo", { email: sentTo })
+                      : t("password.verifyHint")}
+                  </p>
+
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      inputMode="numeric"
+                      maxLength={6}
+                      autoComplete="one-time-code"
+                      className="input-lg flex-1 text-center font-mono text-lg tracking-[0.4em]"
+                      placeholder="000000"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                    />
+                    <button
+                      type="button"
+                      onClick={sendCode}
+                      disabled={sending || cooldown > 0}
+                      className="btn-ghost shrink-0 border border-slate-200 disabled:opacity-50"
+                    >
+                      {sending
+                        ? t("password.sending")
+                        : cooldown > 0
+                          ? t("password.resendIn", { n: cooldown })
+                          : sentTo
+                            ? t("password.resend")
+                            : t("password.sendCode")}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {mailReady === false && (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                  {t("password.noEmailVerification")}
+                </p>
+              )}
+
               <label className="flex items-center gap-2 text-sm text-slate-600">
                 <input
                   type="checkbox"
@@ -188,7 +274,9 @@ export default function ChangePassword() {
 
               <button
                 type="submit"
-                disabled={busy || Boolean(problem) || !current}
+                disabled={
+                  busy || Boolean(problem) || !current || (mailReady && code.length !== 6)
+                }
                 className="btn-primary w-full disabled:opacity-50"
               >
                 {busy ? t("password.changing") : t("password.change")}
